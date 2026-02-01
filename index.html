@@ -7,65 +7,69 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0f172a">
-    <title>Portfolio Pro v1.0</title>
+    <title>Portfolio Pro v2.0</title>
     <style>
         :root {
             --bg: #0f172a; --card: #1e293b; --accent: #38bdf8;
             --text: #f8fafc; --subtext: #94a3b8; --up: #4ade80; --down: #f87171;
         }
         * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; -webkit-tap-highlight-color: transparent; }
-        body { background: var(--bg); color: var(--text); margin: 0; display: flex; justify-content: center; }
-        .container { width: 100%; max-width: 420px; padding: 20px 15px; }
+        body { background: var(--bg); color: var(--text); margin: 0; display: flex; justify-content: center; overflow-x: hidden; }
+        .container { width: 100%; max-width: 420px; padding: 20px 15px 100px 15px; }
         
-        .header { text-align: center; margin-bottom: 20px; }
-        .brand { font-size: 28px; font-weight: bold; color: var(--accent); letter-spacing: 2px; }
-        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        .brand { font-size: 24px; font-weight: bold; color: var(--accent); letter-spacing: 2px; }
+        .kurs-info { font-size: 11px; color: var(--subtext); background: rgba(255,255,255,0.05); padding: 5px 10px; border-radius: 8px; border: 1px solid #334155; }
+
+        .coin-group { margin-bottom: 10px; position: relative; }
         .coin-card { 
             background: var(--card); border-radius: 12px; padding: 12px; 
             display: flex; align-items: center; gap: 10px; border: 1px solid #334155;
-            cursor: pointer; transition: 0.2s;
+            cursor: pointer; position: relative; z-index: 2;
         }
-        .coin-card:active { transform: scale(0.98); }
-        .logo-wrapper { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; border: 1px solid #475569; }
+        .logo-wrapper { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; border: 1px solid #475569; flex-shrink: 0; }
         .logo-wrapper img { width: 100%; height: 100%; object-fit: cover; }
         
         .info-group { flex: 1; }
-        .symbol { font-size: 14px; font-weight: bold; }
-        .price-live { font-size: 10px; color: var(--accent); display: block; }
+        .symbol { font-size: 14px; font-weight: bold; display: block; }
+        .price-live { font-size: 10px; color: var(--accent); font-weight: bold; }
         
-        .total-display { text-align: right; }
-        .amount-main { font-size: 16px; font-weight: bold; display: block; }
-        .value-idr { font-size: 11px; color: var(--subtext); }
+        .total-display { text-align: right; margin-right: 5px; }
+        .amount-main { font-size: 16px; font-weight: bold; display: block; color: var(--text); }
+        .value-idr { font-size: 10px; color: var(--subtext); }
 
-        /* Detail Breakdown Style */
+        /* Detail Breakdown */
         .details { 
-            background: rgba(0,0,0,0.2); margin: -5px 5px 10px 5px; 
-            padding: 15px; border-radius: 0 0 12px 12px; border: 1px solid #334155; border-top: none;
-            display: none; /* Hidden by default */
+            background: #161e2e; margin: -10px 5px 5px 5px; 
+            padding: 20px 15px 15px 15px; border-radius: 0 0 12px 12px; border: 1px solid #334155;
+            display: none; position: relative; z-index: 1;
         }
-        .source-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .source-row label { font-size: 12px; color: var(--subtext); }
+        .source-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 10px; }
+        .source-row label { font-size: 12px; color: var(--subtext); flex: 1; }
         .source-input { 
-            width: 60%; background: var(--bg); border: 1px solid #475569; 
-            border-radius: 6px; color: white; padding: 5px 8px; text-align: right; font-weight: bold;
+            width: 120px; background: rgba(0,0,0,0.3); border: 1px solid #475569; 
+            border-radius: 6px; color: white; padding: 6px; text-align: right; font-weight: bold; outline: none;
         }
+        .source-input:focus { border-color: var(--accent); }
+
+        .btn-add-source { background: none; border: 1px dashed var(--subtext); color: var(--subtext); width: 100%; padding: 5px; border-radius: 6px; font-size: 11px; cursor: pointer; margin-top: 5px; }
+        .del-coin-btn { color: #ef4444; font-size: 18px; padding: 0 5px; cursor: pointer; font-weight: bold; }
 
         .search-section { margin-top: 30px; border-top: 1px dashed #334155; padding-top: 20px; }
         .search-box { display: flex; gap: 8px; }
-        .search-box input { background: var(--card); border: 1px solid #334155; border-radius: 10px; padding: 12px; color: white; width: 100%; }
-        .add-btn { background: var(--accent); border: none; color: #0f172a; border-radius: 10px; padding: 0 15px; font-weight: bold; }
+        .search-box input { background: var(--card); border: 1px solid #334155; border-radius: 10px; padding: 12px; color: white; width: 100%; outline: none; }
+        .add-btn { background: var(--accent); border: none; color: #0f172a; border-radius: 10px; padding: 0 20px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="header">
-        <div class="brand">PORTFOLIO</div>
-        <div id="kurs-live" style="font-size: 12px; color: var(--subtext);">USD/IDR: Loading...</div>
+        <div class="brand">MY ASSETS</div>
+        <div id="kurs-live" class="kurs-info">USD/IDR: Loading...</div>
     </div>
 
-    <div id="main-list">
-        </div>
+    <div id="main-list"></div>
 
     <div class="search-section">
         <div class="search-box">
@@ -76,28 +80,35 @@
 </div>
 
 <script>
-    let usdToIdr = 16000;
-    let prices = { BTC: 0, ETH: 0 };
-    let watchlist = JSON.parse(localStorage.getItem('my_assets_v1')) || ['BTC', 'ETH'];
-    // Simpan saldo per koin per source: { BTC: { binance: 0.1, bybit: 0.05 }, ... }
-    let balances = JSON.parse(localStorage.getItem('my_balances_v1')) || {};
+    let usdToIdr = parseFloat(localStorage.getItem('last_usd_idr')) || 16000;
+    let prices = JSON.parse(localStorage.getItem('last_prices')) || { BTC: 0, ETH: 0 };
+    let watchlist = JSON.parse(localStorage.getItem('my_assets_v2')) || ['BTC', 'ETH'];
+    let balances = JSON.parse(localStorage.getItem('my_balances_v2')) || {};
+    let customSources = JSON.parse(localStorage.getItem('my_sources')) || ['Binance', 'Bybit', 'Wallet'];
 
-    const sources = ['Binance', 'Bybit', 'Wallet'];
+    // Biar gak nutup pas ngetik, kita simpan status expand
+    let expandedCoin = null;
 
-    async function init() {
-        await fetchPrices();
-        renderList();
-    }
-
-    async function fetchPrices() {
+    async function fetchAll() {
         try {
-            const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=usd-coin,bitcoin,ethereum&vs_currencies=idr,usd');
-            const d = await r.json();
-            usdToIdr = d['usd-coin'].idr;
-            prices.BTC = d.bitcoin.usd;
-            prices.ETH = d.ethereum.usd;
-            // Fetch koin lain di watchlist kalau perlu...
-        } catch(e) { console.log("Gagal ambil harga"); }
+            // 1. Get USD/IDR
+            const rKurs = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=usd-coin&vs_currencies=idr');
+            const dKurs = await rKurs.json();
+            usdToIdr = dKurs['usd-coin'].idr;
+            localStorage.setItem('last_usd_idr', usdToIdr);
+            document.getElementById('kurs-live').innerText = `USD/IDR: ${new Intl.NumberFormat('id-ID').format(usdToIdr)}`;
+
+            // 2. Get Prices (Bybit)
+            for (let s of watchlist) {
+                const r = await fetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${s.toUpperCase()}USDT`);
+                const d = await r.json();
+                if (d.result?.list?.[0]) {
+                    prices[s.toUpperCase()] = parseFloat(d.result.list[0].lastPrice);
+                }
+            }
+            localStorage.setItem('last_prices', JSON.stringify(prices));
+            renderList();
+        } catch(e) { console.log("Update gagal, pake data lama"); renderList(); }
     }
 
     function renderList() {
@@ -106,23 +117,26 @@
 
         watchlist.forEach(sym => {
             const total = getTotal(sym);
-            const valueIdr = total * (prices[sym] || 0) * usdToIdr;
+            const price = prices[sym] || 0;
+            const valueIdr = total * price * usdToIdr;
+            const isExpanded = expandedCoin === sym;
 
-            list.innerHTML += `
+            let coinRow = `
                 <div class="coin-group">
                     <div class="coin-card" onclick="toggleDetail('${sym}')">
-                        <div class="logo-wrapper"><img src="${getLogo(sym)}"></div>
+                        <div class="logo-wrapper"><img src="${getLogo(sym)}" onerror="this.src='https://cdn-icons-png.flaticon.com/512/1041/1041888.png'"></div>
                         <div class="info-group">
                             <span class="symbol">${sym}</span>
-                            <span class="price-live">$${(prices[sym] || 0).toLocaleString()}</span>
+                            <span class="price-live">$${price.toLocaleString()}</span>
                         </div>
                         <div class="total-display">
-                            <span class="amount-main">${total.toLocaleString(undefined, {maximumFractionDigits: 8})}</span>
-                            <span class="value-idr">Rp ${Math.round(valueIdr).toLocaleString('id-ID')}</span>
+                            <span id="total-${sym}" class="amount-main">${formatNumber(total)}</span>
+                            <span id="idr-${sym}" class="value-idr">Rp ${Math.round(valueIdr).toLocaleString('id-ID')}</span>
                         </div>
+                        ${sym !== 'BTC' && sym !== 'ETH' ? `<div class="del-coin-btn" onclick="removeCoin(event, '${sym}')">×</div>` : ''}
                     </div>
-                    <div id="detail-${sym}" class="details">
-                        ${sources.map(src => `
+                    <div id="detail-${sym}" class="details" style="display: ${isExpanded ? 'block' : 'none'}">
+                        ${customSources.map(src => `
                             <div class="source-row">
                                 <label>${src}</label>
                                 <input type="number" class="source-input" 
@@ -131,10 +145,11 @@
                                     oninput="updateBalance('${sym}', '${src}', this.value)">
                             </div>
                         `).join('')}
+                        <button class="btn-add-source" onclick="addSource('${sym}')">+ Tambah Source</button>
                     </div>
                 </div>
-                <div style="height:10px"></div>
             `;
+            list.innerHTML += coinRow;
         });
     }
 
@@ -144,39 +159,59 @@
     }
 
     function toggleDetail(sym) {
-        const el = document.getElementById(`detail-${sym}`);
-        el.style.display = el.style.display === 'block' ? 'none' : 'block';
+        if (expandedCoin === sym) {
+            expandedCoin = null;
+        } else {
+            expandedCoin = sym;
+        }
+        renderList();
     }
 
     function updateBalance(sym, src, val) {
         if (!balances[sym]) balances[sym] = {};
         balances[sym][src] = val;
-        localStorage.setItem('my_balances_v1', JSON.stringify(balances));
+        localStorage.setItem('my_balances_v2', JSON.stringify(balances));
         
-        // Refresh cuma angka di baris koin tanpa nutup accordion
-        renderListOnlyNumbers();
+        // Update angka totalan secara live tanpa ngerender ulang seluruh list
+        const total = getTotal(sym);
+        const valueIdr = total * (prices[sym] || 0) * usdToIdr;
+        document.getElementById(`total-${sym}`).innerText = formatNumber(total);
+        document.getElementById(`idr-${sym}`).innerText = "Rp " + Math.round(valueIdr).toLocaleString('id-ID');
     }
 
-    function renderListOnlyNumbers() {
-        // Render ulang totalan tanpa ngerusak fokus input
-        watchlist.forEach(sym => {
-            const total = getTotal(sym);
-            const valueIdr = total * (prices[sym] || 0) * usdToIdr;
-            // Update UI total di baris koin
-            // (Untuk performa lebih baik, idealnya pakai ID spesifik)
-        });
-        // Biar gampang, panggil renderList() aja tapi ini bikin input lose focus
-        // Jadi kita panggil render ulang saat selesai input atau pakai teknik DOM update
-        renderList(); 
+    function addSource() {
+        let name = prompt("Nama Source Baru (misal: OKX, Hotbit):");
+        if (name) {
+            customSources.push(name);
+            localStorage.setItem('my_sources', JSON.stringify(customSources));
+            renderList();
+        }
     }
 
     function addCoin() {
         let s = document.getElementById('search-input').value.toUpperCase().trim();
         if (s && !watchlist.includes(s)) {
             watchlist.push(s);
-            localStorage.setItem('my_assets_v1', JSON.stringify(watchlist));
+            localStorage.setItem('my_assets_v2', JSON.stringify(watchlist));
+            fetchAll();
+            document.getElementById('search-input').value = "";
+        }
+    }
+
+    function removeCoin(e, sym) {
+        e.stopPropagation(); // Biar gak ngetrigger expand
+        if(confirm(`Hapus ${sym} dari list?`)) {
+            watchlist = watchlist.filter(i => i !== sym);
+            delete balances[sym];
+            localStorage.setItem('my_assets_v2', JSON.stringify(watchlist));
+            localStorage.setItem('my_balances_v2', JSON.stringify(balances));
             renderList();
         }
+    }
+
+    function formatNumber(num) {
+        if (num === 0) return "0";
+        return num.toLocaleString(undefined, { maximumFractionDigits: 8 }).replace(/,/g, ',');
     }
 
     function getLogo(s) {
@@ -186,7 +221,7 @@
         return `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${sym}.png`;
     }
 
-    window.onload = init;
+    window.onload = fetchAll;
 </script>
 </body>
 </html>
