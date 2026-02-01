@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Portfolio Bro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #121212; color: white; font-family: sans-serif; }
+        .card { background: #1e1e1e; border-radius: 15px; padding: 20px; margin-bottom: 15px; }
+    </style>
+</head>
+<body class="p-5">
+    <h1 class="text-2xl font-bold mb-5 text-center">Portfolio Multi-Chain</h1>
+    
+    <div class="card">
+        <input type="text" id="walletAddress" placeholder="Masukkan Alamat Wallet (0x...)" class="w-full p-3 rounded bg-gray-800 text-white border border-gray-700">
+        <button onclick="fetchBalances()" class="w-full mt-3 bg-blue-600 hover:bg-blue-700 p-3 rounded font-bold">CEK SALDO</button>
+    </div>
+
+    <div id="results" class="hidden">
+        <div class="card flex justify-between items-center">
+            <span>🇮🇩 IDR (Total)</span>
+            <span id="totalIDR" class="font-bold text-green-400">Rp 0</span>
+        </div>
+        <div class="card flex justify-between items-center">
+            <span>🇺🇸 USD (Total)</span>
+            <span id="totalUSD" class="font-bold text-blue-400">$ 0</span>
+        </div>
+        <div class="card flex justify-between items-center">
+            <span>₿ Bitcoin (BTC)</span>
+            <span id="totalBTC" class="font-bold">0 BTC</span>
+        </div>
+        <div class="card flex justify-between items-center">
+            <span>Ξ Ethereum (ETH)</span>
+            <span id="totalETH" class="font-bold">0 ETH</span>
+        </div>
+
+        <h2 class="text-lg font-bold mt-5 mb-2">Token Lainnya (Aggregated)</h2>
+        <div id="tokenList"></div>
+    </div>
+
+    <script>
+        async function fetchBalances() {
+            const address = document.getElementById('walletAddress').value;
+            if(!address) return alert("Isi alamatnya dulu bro!");
+            
+            document.getElementById('results').classList.remove('hidden');
+            
+            // NOTE: Di sini nanti kita tembak API Moralis/Ankr
+            // Ini simulasi logika "6 USDC" yang elu mau:
+            const mockData = [
+                { symbol: 'USDC', amount: 1, chain: 'Ethereum' },
+                { symbol: 'USDC', amount: 5, chain: 'Polygon' },
+                { symbol: 'ETH', amount: 0.5, chain: 'Mainnet' }
+            ];
+
+            const aggregated = {};
+            mockData.forEach(token => {
+                if(aggregated[token.symbol]) {
+                    aggregated[token.symbol] += token.amount;
+                } else {
+                    aggregated[token.symbol] = token.amount;
+                }
+            });
+
+            // Update Tampilan
+            document.getElementById('tokenList').innerHTML = '';
+            for (const [symbol, amount] of Object.entries(aggregated)) {
+                const item = `<div class="card flex justify-between">
+                    <span>${symbol}</span>
+                    <span class="font-bold text-yellow-500">${amount} ${symbol}</span>
+                </div>`;
+                document.getElementById('tokenList').innerHTML += item;
+            }
+            
+            // Update ETH di urutan utama
+            if(aggregated['ETH']) document.getElementById('totalETH').innerText = aggregated['ETH'] + " ETH";
+        }
+    </script>
+</body>
+</html>
