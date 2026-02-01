@@ -3,15 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-title" content="Portofolio">
-    <meta name="application-name" content="Portofolio">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="#0f172a">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0f172a">
-    
     <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/858/858690.png">
-    
     <title>Portofolio</title>
+    
     <style>
         :root {
             --bg: #0f172a; --card: #1e293b; --accent: #38bdf8;
@@ -30,18 +27,13 @@
             background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
             border-radius: 16px; padding: 20px; margin-bottom: 15px;
             border: 1px solid var(--accent); text-align: center;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
         }
         .summary-label { font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px; display: block; }
         .summary-idr { font-size: 26px; font-weight: 800; display: block; color: #fff; }
         .summary-usd { font-size: 14px; color: var(--subtext); margin-top: 5px; display: block; }
 
         .controls { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 15px; gap: 8px; }
-        .controls label { font-size: 11px; color: var(--subtext); }
-        .sort-select { 
-            background: var(--card); color: white; border: 1px solid #334155; 
-            border-radius: 6px; font-size: 11px; padding: 4px 8px; outline: none;
-        }
+        .sort-select { background: var(--card); color: white; border: 1px solid #334155; border-radius: 6px; font-size: 11px; padding: 4px; outline: none; }
 
         .coin-row { position: relative; width: 100%; margin-bottom: 12px; }
         .coin-card { 
@@ -49,45 +41,40 @@
             display: flex; align-items: center; gap: 10px; border: 1px solid #334155;
             cursor: pointer; position: relative; z-index: 2;
         }
-        .logo-wrapper { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; border: 1px solid #475569; flex-shrink: 0; background: #2d3748; }
+        .logo-wrapper { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; border: 1px solid #475569; flex-shrink: 0; }
         .logo-wrapper img { width: 100%; height: 100%; object-fit: cover; }
         
         .info-group { flex: 1; min-width: 0; }
-        .ticker-row { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+        .ticker-row { display: flex; align-items: center; gap: 6px; }
         .symbol { font-size: 14px; font-weight: bold; }
         .change-pct { font-size: 10px; font-weight: bold; }
-        .price-live { font-size: 11px; color: var(--subtext); font-weight: 500; display: block; }
+        .price-live { font-size: 11px; color: var(--subtext); display: block; }
         .up { color: var(--up); }
         .down { color: var(--down); }
         
-        .total-display { text-align: right; margin-right: 15px; flex-shrink: 0; }
-        .amount-main { font-size: 15px; font-weight: bold; display: block; color: var(--text); }
+        .total-display { text-align: right; margin-right: 15px; }
+        .amount-main { font-size: 15px; font-weight: bold; display: block; }
         .value-idr { font-size: 10px; color: var(--subtext); }
 
-        .delete-btn-outside { position: absolute; right: -25px; top: 28px; transform: translateY(-50%); color: #ef4444; font-size: 24px; cursor: pointer; z-index: 1; line-height: 1; }
+        .delete-btn { position: absolute; right: -25px; top: 28px; transform: translateY(-50%); color: #ef4444; font-size: 24px; cursor: pointer; }
 
         .details { 
             background: #161e2e; margin: -10px 5px 5px 5px; 
             padding: 22px 15px 15px 15px; border-radius: 0 0 12px 12px; border: 1px solid #334155;
-            display: none; position: relative; z-index: 1;
+            display: none;
         }
-        .source-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 8px; }
-        .source-row label { font-size: 12px; color: var(--subtext); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .source-input-wrapper { display: flex; align-items: center; gap: 8px; }
-        .source-input { 
-            width: 90px; background: rgba(0,0,0,0.3); border: 1px solid #475569; 
-            border-radius: 6px; color: white; padding: 6px; text-align: right; font-weight: bold; outline: none; font-size: 12px;
-        }
-        .del-src-btn { color: #f87171; font-size: 18px; cursor: pointer; font-weight: bold; padding: 0 5px; }
+        .source-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .source-input { width: 80px; background: rgba(0,0,0,0.3); border: 1px solid #475569; border-radius: 6px; color: white; padding: 5px; text-align: right; font-size: 12px; }
+        .del-src { color: #f87171; font-size: 18px; margin-left: 5px; cursor: pointer; }
 
-        .add-source-box { display: flex; gap: 5px; margin-top: 15px; padding-top: 12px; border-top: 1px dashed #334155; }
-        .add-source-box input { flex: 1; background: transparent; border: 1px dashed #475569; border-radius: 6px; color: white; padding: 6px; font-size: 11px; outline: none; }
-        .btn-add-src { background: var(--accent); color: var(--bg); border: none; border-radius: 6px; padding: 0 12px; font-size: 11px; font-weight: bold; cursor: pointer; }
+        .add-source-box { display: flex; gap: 5px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #334155; }
+        .add-source-box input { flex: 1; background: transparent; border: 1px dashed #475569; border-radius: 6px; color: white; padding: 5px; font-size: 11px; }
+        .btn-add-src { background: var(--accent); color: var(--bg); border: none; border-radius: 6px; padding: 0 10px; font-size: 11px; font-weight: bold; }
 
         .search-section { margin-top: 30px; border-top: 1px dashed #334155; padding-top: 20px; }
         .search-box { display: flex; gap: 8px; }
-        .search-box input { background: var(--card); border: 1px solid #334155; border-radius: 10px; padding: 12px; color: white; width: 100%; outline: none; font-size: 14px; }
-        .add-btn { background: var(--accent); border: none; color: #0f172a; border-radius: 10px; padding: 0 20px; font-weight: bold; cursor: pointer; }
+        .search-box input { background: var(--card); border: 1px solid #334155; border-radius: 10px; padding: 12px; color: white; width: 100%; outline: none; }
+        .add-btn { background: var(--accent); border: none; color: #0f172a; border-radius: 10px; padding: 0 20px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -102,13 +89,13 @@
     </div>
 
     <div class="summary-card">
-        <span class="summary-label">Total Saldo</span>
+        <br><span class="summary-label">Total Saldo</span>
         <span id="total-all-idr" class="summary-idr">Rp 0</span>
-        <span id="total-all-usd" class="summary-usd">$0.00</span>
+        <span id="total-all-usd" class="summary-usd">$0.00</span><br>
     </div>
 
     <div class="controls">
-        <label>Urutkan:</label>
+        <label style="font-size: 11px; color: var(--subtext);">Urutkan:</label>
         <select id="sort-order" class="sort-select" onchange="renderList()">
             <option value="manual">Default</option>
             <option value="name">Nama (A-Z)</option>
@@ -127,7 +114,26 @@
 </div>
 
 <script>
-    // Inisialisasi Data seaman mungkin
+    // --- FITUR INSTAL (MANIFEST GENERATOR) ---
+    const manifest = {
+        "name": "Portofolio",
+        "short_name": "Portofolio",
+        "start_url": window.location.href,
+        "display": "standalone",
+        "background_color": "#0f172a",
+        "theme_color": "#0f172a",
+        "icons": [{
+            "src": "https://cdn-icons-png.flaticon.com/512/858/858690.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }]
+    };
+    const stringManifest = JSON.stringify(manifest);
+    const blob = new Blob([stringManifest], {type: 'application/json'});
+    const manifestURL = URL.createObjectURL(blob);
+    document.querySelector('head').insertAdjacentHTML('beforeend', `<link rel="manifest" href="${manifestURL}">`);
+
+    // --- LOGIKA APLIKASI ---
     let usdToIdr = parseFloat(localStorage.getItem('last_usd_idr')) || 16000;
     let prices = JSON.parse(localStorage.getItem('last_prices') || '{}');
     let changes = JSON.parse(localStorage.getItem('last_changes') || '{}');
@@ -135,19 +141,11 @@
     let balances = JSON.parse(localStorage.getItem('my_balances_v2') || '{}');
     let coinSources = JSON.parse(localStorage.getItem('my_coin_sources') || '{}');
     let expandedCoin = null;
-
     const stablecoins = ['USD', 'USDT', 'USDC', 'USDE', 'USD1', 'DAI', 'BUSD'];
 
     window.onload = () => {
-        // Pastikan setiap koin punya source minimal
-        watchlist.forEach(sym => {
-            if (!coinSources[sym]) coinSources[sym] = ['Binance', 'Bybit', 'Wallet'];
-        });
-        
-        // Render dulu pake data yang ada biar gak BLANK
+        watchlist.forEach(sym => { if (!coinSources[sym]) coinSources[sym] = ['Binance', 'Bybit', 'Wallet']; });
         renderList();
-        
-        // Baru tarik data terbaru dari internet
         fetchAll();
     };
 
@@ -158,17 +156,13 @@
             if(dKurs?.['usd-coin']?.idr) {
                 usdToIdr = dKurs['usd-coin'].idr;
                 localStorage.setItem('last_usd_idr', usdToIdr);
-                document.getElementById('kurs-live').innerText = `USD/IDR: ${new Intl.NumberFormat('id-ID').format(usdToIdr)}`;
             }
-        } catch(e) { console.log("Kurs error"); }
+        } catch(e) {}
+        document.getElementById('kurs-live').innerText = `USD/IDR: ${new Intl.NumberFormat('id-ID').format(usdToIdr)}`;
 
         for (let s of watchlist) {
             const sym = s.toUpperCase();
-            if (stablecoins.includes(sym)) {
-                prices[sym] = 1.0;
-                changes[sym] = "0.00";
-                continue;
-            }
+            if (stablecoins.includes(sym)) { prices[sym] = 1.0; changes[sym] = "0.00"; continue; }
             try {
                 const r = await fetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${sym}USDT`);
                 const d = await r.json();
@@ -176,35 +170,32 @@
                     const data = d.result.list[0];
                     prices[sym] = parseFloat(data.lastPrice) || 0;
                     let prev = parseFloat(data.prevPrice24h);
-                    changes[sym] = (prev && prev > 0) ? (((prices[sym] - prev) / prev) * 100).toFixed(2) : "0.00";
+                    changes[sym] = (prev > 0) ? (((prices[sym] - prev) / prev) * 100).toFixed(2) : "0.00";
                 }
-            } catch(e) { console.log(`Fetch error ${sym}`); }
+            } catch(e) {}
         }
         localStorage.setItem('last_prices', JSON.stringify(prices));
         localStorage.setItem('last_changes', JSON.stringify(changes));
-        renderList(); // Render ulang setelah dapet harga terbaru
+        renderList();
     }
 
     function renderList() {
         const listContainer = document.getElementById('main-list');
         if (!listContainer) return;
-        
         const sortType = document.getElementById('sort-order').value;
         let sortedList = [...watchlist];
 
-        // LOGIKA SORTING AMAN
-        if (sortType === 'name') {
-            sortedList.sort((a, b) => a.localeCompare(b));
-        } else if (sortType === 'value') {
+        if (sortType === 'name') sortedList.sort((a, b) => a.localeCompare(b));
+        if (sortType === 'value') {
             sortedList.sort((a, b) => {
-                let valA = (getTotal(a) || 0) * (prices[a.toUpperCase()] || 0);
-                let valB = (getTotal(b) || 0) * (prices[b.toUpperCase()] || 0);
+                let valA = getTotal(a) * (prices[a.toUpperCase()] || 0);
+                let valB = getTotal(b) * (prices[b.toUpperCase()] || 0);
                 return valB - valA;
             });
         }
 
         listContainer.innerHTML = "";
-        let grandTotalUsd = 0;
+        let totalAllUsd = 0;
 
         sortedList.forEach(sym => {
             const symU = sym.toUpperCase();
@@ -212,101 +203,83 @@
             const price = prices[symU] || 0;
             const change = changes[symU] || "0.00";
             const valUsd = total * price;
-            const valIdr = valUsd * usdToIdr;
-            grandTotalUsd += valUsd;
+            totalAllUsd += valUsd;
 
             listContainer.innerHTML += `
                 <div class="coin-row">
                     <div class="coin-card" onclick="toggleDetail('${sym}')">
-                        <div class="logo-wrapper">
-                            <img src="${getLogo(sym)}" onerror="this.src='https://cdn-icons-png.flaticon.com/512/1041/1041888.png'">
-                        </div>
+                        <div class="logo-wrapper"><img src="${getLogo(sym)}" onerror="this.src='https://cdn-icons-png.flaticon.com/512/1041/1041888.png'"></div>
                         <div class="info-group">
                             <div class="ticker-row">
                                 <span class="symbol">${symU}</span>
-                                <span class="change-pct ${parseFloat(change) >= 0 ? 'up' : 'down'}">
-                                    ${parseFloat(change) >= 0 ? '+' : ''}${change}%
-                                </span>
+                                <span class="change-pct ${parseFloat(change) >= 0 ? 'up' : 'down'}">${parseFloat(change) >= 0 ? '+' : ''}${change}%</span>
                             </div>
                             <span class="price-live">$${price ? price.toLocaleString() : '---'}</span>
                         </div>
                         <div class="total-display">
                             <span class="amount-main">${formatNumber(total)}</span>
-                            <span class="value-idr">Rp ${Math.round(valIdr).toLocaleString('id-ID')}</span>
+                            <span class="value-idr">Rp ${Math.round(valUsd * usdToIdr).toLocaleString('id-ID')}</span>
                         </div>
                     </div>
-                    ${(symU !== 'BTC' && symU !== 'ETH') ? `<div class="delete-btn-outside" onclick="removeCoin('${sym}')">×</div>` : ''}
+                    ${(symU !== 'BTC' && symU !== 'ETH') ? `<div class="delete-btn" onclick="removeCoin('${sym}')">×</div>` : ''}
                     <div id="detail-${sym}" class="details" style="display: ${expandedCoin === sym ? 'block' : 'none'}">
                         ${(coinSources[sym] || []).map(src => `
                             <div class="source-row">
-                                <label>${src}</label>
-                                <div class="source-input-wrapper">
-                                    <input type="number" class="source-input" value="${balances[sym]?.[src] || ''}" 
-                                        oninput="updateBalance('${sym}', '${src}', this.value)" placeholder="0">
-                                    <div class="del-src-btn" onclick="removeSource('${sym}', '${src}')">×</div>
+                                <span style="font-size: 12px; color: var(--subtext)">${src}</span>
+                                <div style="display:flex; align-items:center;">
+                                    <input type="number" class="source-input" value="${balances[sym]?.[src] || ''}" oninput="updateBalance('${sym}', '${src}', this.value)" placeholder="0">
+                                    <span class="del-src" onclick="removeSource('${sym}', '${src}')">×</span>
                                 </div>
                             </div>
                         `).join('')}
                         <div class="add-source-box">
                             <input type="text" id="new-src-${sym}" placeholder="Tambah source...">
-                            <button class="btn-add-src" onclick="addNewSource('${sym}')">Tambah</button>
+                            <button class="btn-add-src" onclick="addNewSource('${sym}')">Ok</button>
                         </div>
                     </div>
                 </div>
             `;
         });
-        updateGrandUI(grandTotalUsd);
+        updateGrandUI(totalAllUsd);
     }
 
     function getTotal(sym) {
         let sum = 0;
         if (balances[sym] && coinSources[sym]) {
-            coinSources[sym].forEach(src => {
-                sum += (parseFloat(balances[sym][src]) || 0);
-            });
+            coinSources[sym].forEach(src => { sum += (parseFloat(balances[sym][src]) || 0); });
         }
         return sum;
     }
 
-    function toggleDetail(sym) {
-        expandedCoin = (expandedCoin === sym) ? null : sym;
-        renderList();
-    }
+    function toggleDetail(sym) { expandedCoin = (expandedCoin === sym) ? null : sym; renderList(); }
 
     function updateBalance(sym, src, val) {
         if (!balances[sym]) balances[sym] = {};
         balances[sym][src] = val;
         localStorage.setItem('my_balances_v2', JSON.stringify(balances));
-        
         let totalNow = 0;
         watchlist.forEach(s => { totalNow += (getTotal(s) * (prices[s.toUpperCase()] || 0)); });
         updateGrandUI(totalNow);
     }
 
     function updateGrandUI(usd) {
-        const idrElement = document.getElementById('total-all-idr');
-        const usdElement = document.getElementById('total-all-usd');
-        if(idrElement) idrElement.innerText = `Rp ${Math.round(usd * usdToIdr).toLocaleString('id-ID')}`;
-        if(usdElement) usdElement.innerText = `$${usd.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        document.getElementById('total-all-idr').innerText = `Rp ${Math.round(usd * usdToIdr).toLocaleString('id-ID')}`;
+        document.getElementById('total-all-usd').innerText = `$${usd.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
     }
 
     function addNewSource(sym) {
-        const input = document.getElementById(`new-src-${sym}`);
-        const name = input.value.trim();
-        if (name) {
+        const inp = document.getElementById(`new-src-${sym}`);
+        if (inp.value.trim()) {
             if (!coinSources[sym]) coinSources[sym] = [];
-            if (!coinSources[sym].includes(name)) {
-                coinSources[sym].push(name);
-                localStorage.setItem('my_coin_sources', JSON.stringify(coinSources));
-                renderList();
-            }
+            coinSources[sym].push(inp.value.trim());
+            localStorage.setItem('my_coin_sources', JSON.stringify(coinSources));
+            renderList();
         }
     }
 
     function removeSource(sym, src) {
-        if(confirm(`Hapus source "${src}"?`)) {
+        if(confirm(`Hapus source ${src}?`)) {
             coinSources[sym] = coinSources[sym].filter(s => s !== src);
-            if (balances[sym]) delete balances[sym][src];
             localStorage.setItem('my_coin_sources', JSON.stringify(coinSources));
             renderList();
         }
@@ -317,28 +290,20 @@
         let s = inp.value.toUpperCase().trim();
         if (s && !watchlist.includes(s)) {
             watchlist.push(s);
-            coinSources[s] = ['Binance', 'Bybit', 'Wallet'];
             localStorage.setItem('my_assets_v2', JSON.stringify(watchlist));
-            localStorage.setItem('my_coin_sources', JSON.stringify(coinSources));
-            inp.value = "";
-            fetchAll();
+            inp.value = ""; fetchAll();
         }
     }
 
     function removeCoin(sym) {
         if(confirm(`Hapus ${sym}?`)) {
             watchlist = watchlist.filter(i => i !== sym);
-            delete balances[sym]; delete coinSources[sym];
             localStorage.setItem('my_assets_v2', JSON.stringify(watchlist));
-            localStorage.setItem('my_coin_sources', JSON.stringify(coinSources));
             renderList();
         }
     }
 
-    function formatNumber(n) {
-        return (!n || n === 0) ? "0" : n.toLocaleString(undefined, { maximumFractionDigits: 8 });
-    }
-
+    function formatNumber(n) { return (!n || n === 0) ? "0" : n.toLocaleString(undefined, { maximumFractionDigits: 8 }); }
     function getLogo(s) {
         const sym = s.toLowerCase();
         if (sym === 'btc') return 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png';
