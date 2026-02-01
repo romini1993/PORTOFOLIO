@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0f172a">
-    <title>Portfolio Pro v2.6</title>
+    <title>Portfolio Pro v2.7</title>
     <style>
         :root {
             --bg: #0f172a; --card: #1e293b; --accent: #38bdf8;
@@ -23,13 +23,21 @@
 
         .summary-card {
             background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-            border-radius: 16px; padding: 20px; margin-bottom: 25px;
+            border-radius: 16px; padding: 20px; margin-bottom: 15px;
             border: 1px solid var(--accent); text-align: center;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
         }
         .summary-label { font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px; display: block; }
         .summary-idr { font-size: 26px; font-weight: 800; display: block; color: #fff; }
         .summary-usd { font-size: 14px; color: var(--subtext); margin-top: 5px; display: block; }
+
+        /* Sort Section */
+        .controls { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 15px; gap: 8px; }
+        .controls label { font-size: 11px; color: var(--subtext); }
+        .sort-select { 
+            background: var(--card); color: white; border: 1px solid #334155; 
+            border-radius: 6px; font-size: 11px; padding: 4px 8px; outline: none;
+        }
 
         .coin-row { position: relative; width: 100%; margin-bottom: 12px; }
         .coin-card { 
@@ -41,10 +49,10 @@
         .logo-wrapper img { width: 100%; height: 100%; object-fit: cover; }
         
         .info-group { flex: 1; min-width: 0; }
-        .symbol { font-size: 14px; font-weight: bold; display: block; }
-        .price-row { display: flex; align-items: center; gap: 6px; }
-        .price-live { font-size: 10px; color: var(--text); font-weight: bold; }
-        .change-pct { font-size: 9px; font-weight: bold; }
+        .ticker-row { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+        .symbol { font-size: 14px; font-weight: bold; }
+        .change-pct { font-size: 10px; font-weight: bold; }
+        .price-live { font-size: 11px; color: var(--subtext); font-weight: 500; display: block; }
         .up { color: var(--up); }
         .down { color: var(--down); }
         
@@ -63,8 +71,8 @@
         .source-row label { font-size: 12px; color: var(--subtext); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .source-input-wrapper { display: flex; align-items: center; gap: 8px; }
         .source-input { 
-            width: 100px; background: rgba(0,0,0,0.3); border: 1px solid #475569; 
-            border-radius: 6px; color: white; padding: 6px; text-align: right; font-weight: bold; outline: none;
+            width: 90px; background: rgba(0,0,0,0.3); border: 1px solid #475569; 
+            border-radius: 6px; color: white; padding: 6px; text-align: right; font-weight: bold; outline: none; font-size: 12px;
         }
         .del-src-btn { color: #f87171; font-size: 18px; cursor: pointer; font-weight: bold; padding: 0 5px; }
 
@@ -92,6 +100,15 @@
         <span id="total-all-usd" class="summary-usd">$0.00</span>
     </div>
 
+    <div class="controls">
+        <label>Sort by:</label>
+        <select id="sort-order" class="sort-select" onchange="renderList()">
+            <option value="manual">Default</option>
+            <option value="name">Nama (A-Z)</option>
+            <option value="value">Saldo Gede</option>
+        </select>
+    </div>
+
     <div id="main-list"></div>
 
     <div class="search-section">
@@ -113,17 +130,13 @@
     let expandedCoin = null;
     const stablecoins = ['USD', 'USDT', 'USDC', 'USDE', 'USD1', 'DAI', 'BUSD'];
 
-    // Inisialisasi awal
     window.onload = () => {
-        watchlist.forEach(sym => { 
-            if (!coinSources[sym]) coinSources[sym] = ['Binance', 'Bybit', 'Wallet']; 
-        });
+        watchlist.forEach(sym => { if (!coinSources[sym]) coinSources[sym] = ['Binance', 'Bybit', 'Wallet']; });
         renderList();
         fetchAll();
     };
 
     async function fetchAll() {
-        // 1. Ambil Kurs
         try {
             const rKurs = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=usd-coin&vs_currencies=idr');
             const dKurs = await rKurs.json();
@@ -131,17 +144,12 @@
                 usdToIdr = dKurs['usd-coin'].idr;
                 localStorage.setItem('last_usd_idr', usdToIdr);
             }
-        } catch(e) { console.log("Kurs API Error"); }
+        } catch(e) {}
         document.getElementById('kurs-live').innerText = `USD/IDR: ${new Intl.NumberFormat('id-ID').format(usdToIdr)}`;
 
-        // 2. Ambil Harga Koin satu per satu
         for (let s of watchlist) {
             const sym = s.toUpperCase();
-            if (stablecoins.includes(sym)) {
-                prices[sym] = 1.0;
-                changes[sym] = 0;
-                continue;
-            }
+            if (stablecoins.includes(sym)) { prices[sym] = 1.0; changes[sym] = "0.00"; continue; }
             try {
                 const r = await fetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${sym}USDT`);
                 const d = await r.json();
@@ -149,13 +157,9 @@
                     const data = d.result.list[0];
                     prices[sym] = parseFloat(data.lastPrice);
                     let prev = parseFloat(data.prevPrice24h);
-                    if(prev && prev > 0) {
-                        changes[sym] = (((prices[sym] - prev) / prev) * 100).toFixed(2);
-                    } else {
-                        changes[sym] = "0.00";
-                    }
+                    changes[sym] = prev ? (((prices[sym] - prev) / prev) * 100).toFixed(2) : "0.00";
                 }
-            } catch(e) { console.log(`Error fetch ${sym}`); }
+            } catch(e) {}
         }
         localStorage.setItem('last_prices', JSON.stringify(prices));
         localStorage.setItem('last_changes', JSON.stringify(changes));
@@ -164,12 +168,25 @@
 
     function renderList() {
         const list = document.getElementById('main-list');
+        const sortType = document.getElementById('sort-order').value;
         if (!list) return;
-        list.innerHTML = "";
+        
+        let displayList = [...watchlist];
 
+        if (sortType === 'name') {
+            displayList.sort((a, b) => a.localeCompare(b));
+        } else if (sortType === 'value') {
+            displayList.sort((a, b) => {
+                let valA = getTotal(a) * (prices[a.toUpperCase()] || 0);
+                let valB = getTotal(b) * (prices[b.toUpperCase()] || 0);
+                return valB - valA;
+            });
+        }
+
+        list.innerHTML = "";
         let grandTotalUsd = 0;
 
-        watchlist.forEach(sym => {
+        displayList.forEach(sym => {
             const symU = sym.toUpperCase();
             const total = getTotal(sym);
             const price = prices[symU] || 0;
@@ -179,20 +196,20 @@
             const isExpanded = expandedCoin === sym;
 
             grandTotalUsd += valueUsd;
-            const sources = coinSources[sym] || ['Binance', 'Bybit', 'Wallet'];
+            const sources = coinSources[sym] || [];
 
             list.innerHTML += `
                 <div class="coin-row">
                     <div class="coin-card" onclick="toggleDetail('${sym}')">
                         <div class="logo-wrapper"><img src="${getLogo(sym)}" onerror="this.src='https://cdn-icons-png.flaticon.com/512/1041/1041888.png'"></div>
                         <div class="info-group">
-                            <span class="symbol">${symU}</span>
-                            <div class="price-row">
-                                <span class="price-live">$${price ? price.toLocaleString() : '---'}</span>
+                            <div class="ticker-row">
+                                <span class="symbol">${symU}</span>
                                 <span class="change-pct ${parseFloat(change) >= 0 ? 'up' : 'down'}">
                                     ${parseFloat(change) >= 0 ? '+' : ''}${change}%
                                 </span>
                             </div>
+                            <span class="price-live">$${price ? price.toLocaleString() : '---'}</span>
                         </div>
                         <div class="total-display">
                             <span id="total-${sym}" class="amount-main">${formatNumber(total)}</span>
@@ -212,14 +229,13 @@
                             </div>
                         `).join('')}
                         <div class="add-source-box">
-                            <input type="text" id="new-src-${sym}" placeholder="Nama source baru...">
+                            <input type="text" id="new-src-${sym}" placeholder="Tambah source...">
                             <button class="btn-add-src" onclick="addNewSource('${sym}')">Tambah</button>
                         </div>
                     </div>
                 </div>
             `;
         });
-
         updateGrandTotalUI(grandTotalUsd);
     }
 
@@ -240,15 +256,13 @@
         if (!balances[sym]) balances[sym] = {};
         balances[sym][src] = val;
         localStorage.setItem('my_balances_v2', JSON.stringify(balances));
-        
-        let grandTotalUsd = 0;
-        watchlist.forEach(s => { grandTotalUsd += (getTotal(s) * (prices[s.toUpperCase()] || 0)); });
-        updateGrandTotalUI(grandTotalUsd);
-
-        const total = getTotal(sym);
-        const valIdr = total * (prices[sym.toUpperCase()] || 0) * usdToIdr;
-        document.getElementById(`total-${sym}`).innerText = formatNumber(total);
-        document.getElementById(`idr-${sym}`).innerText = "Rp " + Math.round(valIdr).toLocaleString('id-ID');
+        let gUsd = 0;
+        watchlist.forEach(s => { gUsd += (getTotal(s) * (prices[s.toUpperCase()] || 0)); });
+        updateGrandTotalUI(gUsd);
+        const t = getTotal(sym);
+        const vIdr = t * (prices[sym.toUpperCase()] || 0) * usdToIdr;
+        document.getElementById(`total-${sym}`).innerText = formatNumber(t);
+        document.getElementById(`idr-${sym}`).innerText = "Rp " + Math.round(vIdr).toLocaleString('id-ID');
     }
 
     function updateGrandTotalUI(usd) {
@@ -259,61 +273,4 @@
 
     function addNewSource(sym) {
         const input = document.getElementById(`new-src-${sym}`);
-        const name = input.value.trim();
-        if (name) {
-            if (!coinSources[sym]) coinSources[sym] = [];
-            if (!coinSources[sym].includes(name)) {
-                coinSources[sym].push(name);
-                localStorage.setItem('my_coin_sources', JSON.stringify(coinSources));
-                renderList();
-            }
-        }
-    }
-
-    function removeSource(sym, src) {
-        if(confirm(`Hapus source "${src}"?`)) {
-            coinSources[sym] = coinSources[sym].filter(s => s !== src);
-            if (balances[sym]) delete balances[sym][src];
-            localStorage.setItem('my_coin_sources', JSON.stringify(coinSources));
-            renderList();
-        }
-    }
-
-    function addCoin() {
-        const input = document.getElementById('search-input');
-        let s = input.value.toUpperCase().trim();
-        if (s && !watchlist.includes(s)) {
-            watchlist.push(s);
-            coinSources[s] = ['Binance', 'Bybit', 'Wallet'];
-            localStorage.setItem('my_assets_v2', JSON.stringify(watchlist));
-            localStorage.setItem('my_coin_sources', JSON.stringify(coinSources));
-            input.value = "";
-            fetchAll();
-        }
-    }
-
-    function removeCoin(sym) {
-        if(confirm(`Hapus ${sym}?`)) {
-            watchlist = watchlist.filter(i => i !== sym);
-            delete balances[sym];
-            delete coinSources[sym];
-            localStorage.setItem('my_assets_v2', JSON.stringify(watchlist));
-            localStorage.setItem('my_coin_sources', JSON.stringify(coinSources));
-            renderList();
-        }
-    }
-
-    function formatNumber(num) {
-        return (!num || num === 0) ? "0" : num.toLocaleString(undefined, { maximumFractionDigits: 8 });
-    }
-
-    function getLogo(s) {
-        const sym = s.toLowerCase();
-        if (sym === 'btc') return 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png';
-        if (sym === 'eth') return 'https://assets.coingecko.com/coins/images/279/large/ethereum.png';
-        if (sym === 'usdt' || sym === 'usd') return 'https://assets.coingecko.com/coins/images/325/large/Tether.png';
-        return `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${sym}.png`;
-    }
-</script>
-</body>
-</html>
+        const name = input.value.trim
