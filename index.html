@@ -127,52 +127,62 @@
 </div>
 
 <script>
-    // Data Inisialisasi
+    // Inisialisasi Data seaman mungkin
     let usdToIdr = parseFloat(localStorage.getItem('last_usd_idr')) || 16000;
-    let prices = JSON.parse(localStorage.getItem('last_prices')) || {};
-    let changes = JSON.parse(localStorage.getItem('last_changes')) || {};
-    let watchlist = JSON.parse(localStorage.getItem('my_assets_v2')) || ['BTC', 'ETH'];
-    let balances = JSON.parse(localStorage.getItem('my_balances_v2')) || {};
-    let coinSources = JSON.parse(localStorage.getItem('my_coin_sources')) || {};
+    let prices = JSON.parse(localStorage.getItem('last_prices') || '{}');
+    let changes = JSON.parse(localStorage.getItem('last_changes') || '{}');
+    let watchlist = JSON.parse(localStorage.getItem('my_assets_v2') || '["BTC", "ETH"]');
+    let balances = JSON.parse(localStorage.getItem('my_balances_v2') || '{}');
+    let coinSources = JSON.parse(localStorage.getItem('my_coin_sources') || '{}');
     let expandedCoin = null;
+
     const stablecoins = ['USD', 'USDT', 'USDC', 'USDE', 'USD1', 'DAI', 'BUSD'];
 
     window.onload = () => {
-        try {
-            watchlist.forEach(sym => { if (!coinSources[sym]) coinSources[sym] = ['Binance', 'Bybit', 'Wallet']; });
-            renderList();
-            fetchAll();
-        } catch(e) { console.error("Onload Error: ", e); }
+        // Pastikan setiap koin punya source minimal
+        watchlist.forEach(sym => {
+            if (!coinSources[sym]) coinSources[sym] = ['Binance', 'Bybit', 'Wallet'];
+        });
+        
+        // Render dulu pake data yang ada biar gak BLANK
+        renderList();
+        
+        // Baru tarik data terbaru dari internet
+        fetchAll();
     };
 
     async function fetchAll() {
         try {
             const rKurs = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=usd-coin&vs_currencies=idr');
             const dKurs = await rKurs.json();
-            if(dKurs['usd-coin']) {
+            if(dKurs?.['usd-coin']?.idr) {
                 usdToIdr = dKurs['usd-coin'].idr;
                 localStorage.setItem('last_usd_idr', usdToIdr);
                 document.getElementById('kurs-live').innerText = `USD/IDR: ${new Intl.NumberFormat('id-ID').format(usdToIdr)}`;
             }
-        } catch(e) {}
+        } catch(e) { console.log("Kurs error"); }
 
         for (let s of watchlist) {
             const sym = s.toUpperCase();
-            if (stablecoins.includes(sym)) { prices[sym] = 1.0; changes[sym] = "0.00"; continue; }
+            if (stablecoins.includes(sym)) {
+                prices[sym] = 1.0;
+                changes[sym] = "0.00";
+                continue;
+            }
             try {
                 const r = await fetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${sym}USDT`);
                 const d = await r.json();
                 if (d.result?.list?.[0]) {
                     const data = d.result.list[0];
-                    prices[sym] = parseFloat(data.lastPrice);
+                    prices[sym] = parseFloat(data.lastPrice) || 0;
                     let prev = parseFloat(data.prevPrice24h);
-                    changes[sym] = prev ? (((prices[sym] - prev) / prev) * 100).toFixed(2) : "0.00";
+                    changes[sym] = (prev && prev > 0) ? (((prices[sym] - prev) / prev) * 100).toFixed(2) : "0.00";
                 }
-            } catch(e) {}
+            } catch(e) { console.log(`Fetch error ${sym}`); }
         }
         localStorage.setItem('last_prices', JSON.stringify(prices));
         localStorage.setItem('last_changes', JSON.stringify(changes));
-        renderList();
+        renderList(); // Render ulang setelah dapet harga terbaru
     }
 
     function renderList() {
@@ -182,17 +192,19 @@
         const sortType = document.getElementById('sort-order').value;
         let sortedList = [...watchlist];
 
-        if (sortType === 'name') sortedList.sort((a, b) => a.localeCompare(b));
-        if (sortType === 'value') {
+        // LOGIKA SORTING AMAN
+        if (sortType === 'name') {
+            sortedList.sort((a, b) => a.localeCompare(b));
+        } else if (sortType === 'value') {
             sortedList.sort((a, b) => {
-                let valA = getTotal(a) * (prices[a.toUpperCase()] || 0);
-                let valB = getTotal(b) * (prices[b.toUpperCase()] || 0);
+                let valA = (getTotal(a) || 0) * (prices[a.toUpperCase()] || 0);
+                let valB = (getTotal(b) || 0) * (prices[b.toUpperCase()] || 0);
                 return valB - valA;
             });
         }
 
         listContainer.innerHTML = "";
-        let totalAllUsd = 0;
+        let grandTotalUsd = 0;
 
         sortedList.forEach(sym => {
             const symU = sym.toUpperCase();
@@ -201,16 +213,20 @@
             const change = changes[symU] || "0.00";
             const valUsd = total * price;
             const valIdr = valUsd * usdToIdr;
-            totalAllUsd += valUsd;
+            grandTotalUsd += valUsd;
 
             listContainer.innerHTML += `
                 <div class="coin-row">
                     <div class="coin-card" onclick="toggleDetail('${sym}')">
-                        <div class="logo-wrapper"><img src="${getLogo(sym)}" onerror="this.src='https://cdn-icons-png.flaticon.com/512/1041/1041888.png'"></div>
+                        <div class="logo-wrapper">
+                            <img src="${getLogo(sym)}" onerror="this.src='https://cdn-icons-png.flaticon.com/512/1041/1041888.png'">
+                        </div>
                         <div class="info-group">
                             <div class="ticker-row">
                                 <span class="symbol">${symU}</span>
-                                <span class="change-pct ${parseFloat(change) >= 0 ? 'up' : 'down'}">${parseFloat(change) >= 0 ? '+' : ''}${change}%</span>
+                                <span class="change-pct ${parseFloat(change) >= 0 ? 'up' : 'down'}">
+                                    ${parseFloat(change) >= 0 ? '+' : ''}${change}%
+                                </span>
                             </div>
                             <span class="price-live">$${price ? price.toLocaleString() : '---'}</span>
                         </div>
@@ -225,7 +241,8 @@
                             <div class="source-row">
                                 <label>${src}</label>
                                 <div class="source-input-wrapper">
-                                    <input type="number" class="source-input" value="${balances[sym]?.[src] || ''}" oninput="updateBalance('${sym}', '${src}', this.value)" placeholder="0">
+                                    <input type="number" class="source-input" value="${balances[sym]?.[src] || ''}" 
+                                        oninput="updateBalance('${sym}', '${src}', this.value)" placeholder="0">
                                     <div class="del-src-btn" onclick="removeSource('${sym}', '${src}')">×</div>
                                 </div>
                             </div>
@@ -238,36 +255,44 @@
                 </div>
             `;
         });
-        updateGrandUI(totalAllUsd);
+        updateGrandUI(grandTotalUsd);
     }
 
     function getTotal(sym) {
         let sum = 0;
-        if (balances[sym]) {
-            (coinSources[sym] || []).forEach(src => { sum += (parseFloat(balances[sym][src]) || 0); });
+        if (balances[sym] && coinSources[sym]) {
+            coinSources[sym].forEach(src => {
+                sum += (parseFloat(balances[sym][src]) || 0);
+            });
         }
         return sum;
     }
 
-    function toggleDetail(sym) { expandedCoin = (expandedCoin === sym) ? null : sym; renderList(); }
+    function toggleDetail(sym) {
+        expandedCoin = (expandedCoin === sym) ? null : sym;
+        renderList();
+    }
 
     function updateBalance(sym, src, val) {
         if (!balances[sym]) balances[sym] = {};
         balances[sym][src] = val;
         localStorage.setItem('my_balances_v2', JSON.stringify(balances));
         
-        let currentTotalUsd = 0;
-        watchlist.forEach(s => { currentTotalUsd += (getTotal(s) * (prices[s.toUpperCase()] || 0)); });
-        updateGrandUI(currentTotalUsd);
+        let totalNow = 0;
+        watchlist.forEach(s => { totalNow += (getTotal(s) * (prices[s.toUpperCase()] || 0)); });
+        updateGrandUI(totalNow);
     }
 
     function updateGrandUI(usd) {
-        document.getElementById('total-all-idr').innerText = `Rp ${Math.round(usd * usdToIdr).toLocaleString('id-ID')}`;
-        document.getElementById('total-all-usd').innerText = `$${usd.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        const idrElement = document.getElementById('total-all-idr');
+        const usdElement = document.getElementById('total-all-usd');
+        if(idrElement) idrElement.innerText = `Rp ${Math.round(usd * usdToIdr).toLocaleString('id-ID')}`;
+        if(usdElement) usdElement.innerText = `$${usd.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
     }
 
     function addNewSource(sym) {
-        const name = document.getElementById(`new-src-${sym}`).value.trim();
+        const input = document.getElementById(`new-src-${sym}`);
+        const name = input.value.trim();
         if (name) {
             if (!coinSources[sym]) coinSources[sym] = [];
             if (!coinSources[sym].includes(name)) {
@@ -283,4 +308,44 @@
             coinSources[sym] = coinSources[sym].filter(s => s !== src);
             if (balances[sym]) delete balances[sym][src];
             localStorage.setItem('my_coin_sources', JSON.stringify(coinSources));
-            render
+            renderList();
+        }
+    }
+
+    function addCoin() {
+        const inp = document.getElementById('search-input');
+        let s = inp.value.toUpperCase().trim();
+        if (s && !watchlist.includes(s)) {
+            watchlist.push(s);
+            coinSources[s] = ['Binance', 'Bybit', 'Wallet'];
+            localStorage.setItem('my_assets_v2', JSON.stringify(watchlist));
+            localStorage.setItem('my_coin_sources', JSON.stringify(coinSources));
+            inp.value = "";
+            fetchAll();
+        }
+    }
+
+    function removeCoin(sym) {
+        if(confirm(`Hapus ${sym}?`)) {
+            watchlist = watchlist.filter(i => i !== sym);
+            delete balances[sym]; delete coinSources[sym];
+            localStorage.setItem('my_assets_v2', JSON.stringify(watchlist));
+            localStorage.setItem('my_coin_sources', JSON.stringify(coinSources));
+            renderList();
+        }
+    }
+
+    function formatNumber(n) {
+        return (!n || n === 0) ? "0" : n.toLocaleString(undefined, { maximumFractionDigits: 8 });
+    }
+
+    function getLogo(s) {
+        const sym = s.toLowerCase();
+        if (sym === 'btc') return 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png';
+        if (sym === 'eth') return 'https://assets.coingecko.com/coins/images/279/large/ethereum.png';
+        if (['usdt', 'usd'].includes(sym)) return 'https://assets.coingecko.com/coins/images/325/large/Tether.png';
+        return `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${sym}.png`;
+    }
+</script>
+</body>
+</html>
