@@ -3,192 +3,167 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0f172a">
-    <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/858/858690.png">
-    <title>Portofolio</title>
-    
+    <title>Portofolio Fix</title>
     <style>
-        :root {
-            --bg: #0f172a; --card: #1e293b; --accent: #38bdf8;
-            --text: #f8fafc; --subtext: #94a3b8; --up: #4ade80; --down: #f87171;
-        }
-        * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; -webkit-tap-highlight-color: transparent; }
-        body { background: var(--bg); color: var(--text); margin: 0; display: flex; justify-content: center; overflow-x: hidden; }
+        :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --text: #f8fafc; --subtext: #94a3b8; --up: #4ade80; --down: #f87171; }
+        * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: var(--bg); color: var(--text); margin: 0; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 420px; padding: 20px 15px 100px 15px; }
-        
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .brand { font-size: 20px; font-weight: bold; color: var(--accent); display: flex; align-items: center; gap: 8px; }
-        .brand-icon { width: 24px; height: 24px; }
+        .brand { font-size: 20px; font-weight: bold; color: var(--accent); }
         .kurs-info { font-size: 10px; color: var(--subtext); background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 8px; border: 1px solid #334155; }
-
-        .summary-card {
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-            border-radius: 16px; padding: 20px; margin-bottom: 15px;
-            border: 1px solid var(--accent); text-align: center;
-        }
-        .summary-label { font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px; display: block; }
-        .summary-idr { font-size: 26px; font-weight: 800; display: block; color: #fff; }
-        .summary-usd { font-size: 14px; color: var(--subtext); margin-top: 5px; display: block; }
-
-        .list-filter-box { margin-bottom: 15px; }
-        .list-filter-box input {
-            width: 100%; background: rgba(255,255,255,0.05); border: 1px solid #334155;
-            border-radius: 10px; padding: 10px 15px; color: white; outline: none; font-size: 13px;
-        }
-
-        .controls { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 15px; gap: 8px; }
-        .sort-select { background: var(--card); color: white; border: 1px solid #334155; border-radius: 6px; font-size: 11px; padding: 4px; outline: none; }
-
-        .coin-row { position: relative; width: 100%; margin-bottom: 12px; }
-        .coin-card { 
-            background: var(--card); border-radius: 12px; padding: 12px; 
-            display: flex; align-items: center; gap: 10px; border: 1px solid #334155;
-            cursor: pointer; position: relative; z-index: 2;
-        }
-        .logo-wrapper { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; border: 1px solid #475569; flex-shrink: 0; }
-        .logo-wrapper img { width: 100%; height: 100%; object-fit: cover; }
-        
-        .info-group { flex: 1; min-width: 0; }
-        .ticker-row { display: flex; align-items: center; gap: 6px; }
+        .summary-card { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 16px; padding: 20px; margin-bottom: 15px; border: 1px solid var(--accent); text-align: center; }
+        .summary-idr { font-size: 26px; font-weight: 800; display: block; }
+        .list-filter-box input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid #334155; border-radius: 10px; padding: 10px 15px; color: white; margin-bottom: 15px; outline: none; }
+        .coin-card { background: var(--card); border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 10px; border: 1px solid #334155; margin-bottom: 10px; cursor: pointer; }
+        .info-group { flex: 1; }
         .symbol { font-size: 14px; font-weight: bold; }
-        .change-pct { font-size: 10px; font-weight: bold; }
-        .price-live { font-size: 11px; color: var(--subtext); display: block; }
-        .up { color: var(--up); }
-        .down { color: var(--down); }
-        
-        .total-display { text-align: right; margin-right: 15px; }
-        .amount-main { font-size: 15px; font-weight: bold; display: block; }
-        .value-idr { font-size: 10px; color: var(--subtext); }
-
-        .delete-btn { position: absolute; right: -25px; top: 28px; transform: translateY(-50%); color: #ef4444; font-size: 24px; cursor: pointer; }
-
-        .details { 
-            background: #161e2e; margin: -10px 5px 5px 5px; 
-            padding: 22px 15px 15px 15px; border-radius: 0 0 12px 12px; border: 1px solid #334155;
-            display: none;
-        }
-        .source-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .source-input { width: 80px; background: rgba(0,0,0,0.3); border: 1px solid #475569; border-radius: 6px; color: white; padding: 5px; text-align: right; font-size: 12px; }
-        .del-src { color: #f87171; font-size: 18px; margin-left: 5px; cursor: pointer; }
-
-        .add-source-box { display: flex; gap: 5px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #334155; }
-        .add-source-box input { flex: 1; background: transparent; border: 1px dashed #475569; border-radius: 6px; color: white; padding: 5px; font-size: 11px; }
-        .btn-add-src { background: var(--accent); color: var(--bg); border: none; border-radius: 6px; padding: 0 10px; font-size: 11px; font-weight: bold; }
-
-        .search-section { margin-top: 30px; border-top: 1px dashed #334155; padding-top: 20px; }
-        .search-box { display: flex; gap: 8px; }
-        .search-box input { background: var(--card); border: 1px solid #334155; border-radius: 10px; padding: 12px; color: white; width: 100%; outline: none; }
-        .add-btn { background: var(--accent); border: none; color: #0f172a; border-radius: 10px; padding: 0 20px; font-weight: bold; }
-
-        .backup-section { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .backup-btn { 
-            background: transparent; border: 1px solid #334155; color: var(--subtext); 
-            padding: 10px; border-radius: 8px; font-size: 10px; cursor: pointer; 
-            display: flex; align-items: center; gap: 5px; justify-content: center;
-        }
-        .backup-btn:hover { border-color: var(--accent); color: white; }
+        .details { background: #161e2e; margin: -15px 5px 10px 5px; padding: 20px 15px 15px 15px; border-radius: 0 0 12px 12px; border: 1px solid #334155; display: none; }
+        .source-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .source-input { width: 80px; background: #000; border: 1px solid #475569; color: #fff; text-align: right; border-radius: 4px; }
+        .backup-section { margin-top: 30px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .backup-btn { background: transparent; border: 1px solid #334155; color: var(--subtext); padding: 10px; border-radius: 8px; font-size: 10px; cursor: pointer; text-align: center; }
+        .add-btn { background: var(--accent); border: none; padding: 10px 20px; border-radius: 10px; font-weight: bold; }
+        .search-box { display: flex; gap: 5px; margin-top: 20px; }
+        .search-box input { flex: 1; background: var(--card); border: 1px solid #334155; color: white; padding: 10px; border-radius: 10px; }
     </style>
 </head>
 <body>
-
 <div class="container">
     <div class="header">
-        <div class="brand">
-            <img src="https://cdn-icons-png.flaticon.com/512/858/858690.png" class="brand-icon">
-            PORTOFOLIO
-        </div>
+        <div class="brand">PORTOFOLIO</div>
         <div id="kurs-live" class="kurs-info">USD/IDR: Loading...</div>
     </div>
-
     <div class="summary-card">
-        <br><span class="summary-label">Total Saldo</span>
+        <span style="font-size: 11px; color: var(--accent);">TOTAL SALDO</span>
         <span id="total-all-idr" class="summary-idr">Rp 0</span>
-        <span id="total-all-usd" class="summary-usd">$0.00</span><br>
+        <span id="total-all-usd" style="color: var(--subtext);">$0.00</span>
     </div>
-
     <div class="list-filter-box">
         <input type="text" id="filter-input" placeholder="Cari koin di list..." oninput="renderList()">
     </div>
-
-    <div class="controls">
-        <label style="font-size: 11px; color: var(--subtext);">Urutkan:</label>
-        <select id="sort-order" class="sort-select" onchange="renderList()">
-            <option value="manual">Default</option>
-            <option value="name">Nama (A-Z)</option>
-            <option value="value">Saldo Terbesar</option>
-        </select>
-    </div>
-
     <div id="main-list"></div>
-
-    <div class="search-section">
-        <div class="search-box">
-            <input type="text" id="search-input" placeholder="Tambah koin baru (misal: SUI)">
-            <button class="add-btn" onclick="addCoin()">+</button>
-        </div>
+    <div class="search-box">
+        <input type="text" id="search-input" placeholder="Tambah koin (SUI, BTC, dll)">
+        <button class="add-btn" onclick="addCoin()">+</button>
     </div>
-
     <div class="backup-section">
         <button class="backup-btn" onclick="exportData()">📤 Backup JSON</button>
         <button class="backup-btn" onclick="exportToExcel()">📊 Export Excel</button>
-        <button class="backup-btn" onclick="exportToHTML()">🎨 Laporan Cantik</button>
         <button class="backup-btn" onclick="document.getElementById('importFile').click()">📥 Import JSON</button>
+        <button class="backup-btn" onclick="resetApp()" style="color: #f87171;">⚠️ Reset App</button>
         <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
     </div>
 </div>
 
 <script>
-    // --- MANIFEST ---
-    const manifest = { "name": "Portofolio", "short_name": "Porto", "start_url": window.location.href, "display": "standalone", "background_color": "#0f172a", "theme_color": "#0f172a", "icons": [{"src": "https://cdn-icons-png.flaticon.com/512/858/858690.png", "sizes": "512x512", "type": "image/png"}] };
-    const blobManifest = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
-    document.querySelector('head').insertAdjacentHTML('beforeend', `<link rel="manifest" href="${URL.createObjectURL(blobManifest)}">`);
-
-    // --- DATA ---
-    let usdToIdr = parseFloat(localStorage.getItem('last_usd_idr')) || 16000;
-    let prices = JSON.parse(localStorage.getItem('last_prices') || '{}');
-    let changes = JSON.parse(localStorage.getItem('last_changes') || '{}');
-    let watchlist = JSON.parse(localStorage.getItem('my_assets_v2') || '["BTC", "ETH"]');
+    let usdToIdr = 16000;
+    let prices = {};
+    let watchlist = JSON.parse(localStorage.getItem('my_assets_v2') || '["BTC", "ETH", "USDT"]');
     let balances = JSON.parse(localStorage.getItem('my_balances_v2') || '{}');
     let coinSources = JSON.parse(localStorage.getItem('my_coin_sources') || '{}');
     let expandedCoin = null;
-    const stablecoins = ['USD', 'USDT', 'USDC', 'USDE', 'USD1', 'DAI', 'BUSD'];
 
     window.onload = () => {
-        watchlist.forEach(sym => { if (!coinSources[sym]) coinSources[sym] = ['Binance', 'Bybit', 'Wallet']; });
+        watchlist.forEach(s => { if(!coinSources[s]) coinSources[s] = ['Binance','Bybit','Wallet']; });
         renderList();
         fetchAll();
     };
 
-    // --- FITUR EXPORT / IMPORT ---
-    function exportData() {
-        const data = { assets: watchlist, balances: balances, sources: coinSources, date: new Date().toISOString() };
-        downloadFile(new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'}), `BACKUP_PORTO_${getDate()}.json`);
+    async function fetchAll() {
+        try {
+            const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=usd-coin&vs_currencies=idr');
+            const d = await r.json();
+            if(d['usd-coin'].idr) usdToIdr = d['usd-coin'].idr;
+            document.getElementById('kurs-live').innerText = `USD/IDR: ${usdToIdr.toLocaleString('id-ID')}`;
+        } catch(e) { console.log("Gagal ambil kurs"); }
+
+        for (let s of watchlist) {
+            if (['USDT','USD','USDC'].includes(s.toUpperCase())) { prices[s.toUpperCase()] = 1; continue; }
+            try {
+                const r = await fetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${s.toUpperCase()}USDT`);
+                const d = await r.json();
+                if(d.result?.list?.[0]) prices[s.toUpperCase()] = parseFloat(d.result.list[0].lastPrice);
+            } catch(e) {}
+        }
+        renderList();
     }
 
+    function renderList() {
+        const list = document.getElementById('main-list');
+        const filter = document.getElementById('filter-input').value.toUpperCase();
+        list.innerHTML = "";
+        let totalAllUsd = 0;
+
+        watchlist.filter(s => s.includes(filter)).forEach(sym => {
+            const price = prices[sym] || 0;
+            let coinTotal = 0;
+            (coinSources[sym] || []).forEach(src => coinTotal += parseFloat(balances[sym]?.[src] || 0));
+            const valUsd = coinTotal * price;
+            totalAllUsd += valUsd;
+
+            list.innerHTML += `
+                <div class="coin-card" onclick="toggleDetail('${sym}')">
+                    <div class="info-group">
+                        <span class="symbol">${sym}</span><br>
+                        <span style="font-size:10px; color:var(--subtext)">$${price.toLocaleString()}</span>
+                    </div>
+                    <div style="text-align:right">
+                        <span style="font-weight:bold">${coinTotal.toLocaleString()}</span><br>
+                        <span style="font-size:10px; color:var(--subtext)">Rp ${(valUsd*usdToIdr).toLocaleString('id-ID')}</span>
+                    </div>
+                </div>
+                <div id="det-${sym}" class="details" style="display:${expandedCoin===sym?'block':'none'}">
+                    ${(coinSources[sym]||[]).map(src => `
+                        <div class="source-row">
+                            <span>${src}</span>
+                            <input type="number" class="source-input" value="${balances[sym]?.[src]||''}" oninput="updateBal('${sym}','${src}',this.value)">
+                        </div>
+                    `).join('')}
+                </div>`;
+        });
+        document.getElementById('total-all-idr').innerText = `Rp ${Math.round(totalAllUsd*usdToIdr).toLocaleString('id-ID')}`;
+        document.getElementById('total-all-usd').innerText = `$${totalAllUsd.toLocaleString()}`;
+    }
+
+    function toggleDetail(s) { expandedCoin = (expandedCoin === s) ? null : s; renderList(); }
+    function updateBal(s, src, v) { if(!balances[s]) balances[s]={}; balances[s][src]=v; localStorage.setItem('my_balances_v2', JSON.stringify(balances)); renderList(); }
+    function addCoin() { 
+        const s = document.getElementById('search-input').value.toUpperCase().trim();
+        if(s && !watchlist.includes(s)) { watchlist.push(s); localStorage.setItem('my_assets_v2', JSON.stringify(watchlist)); fetchAll(); }
+    }
+    function exportData() {
+        const data = { assets: watchlist, balances: balances, sources: coinSources };
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], {type:'application/json'}));
+        a.download = "backup.json"; a.click();
+    }
+    function importData(e) {
+        const reader = new FileReader();
+        reader.onload = (f) => {
+            const d = JSON.parse(f.target.result);
+            watchlist = d.assets; balances = d.balances; coinSources = d.sources;
+            localStorage.setItem('my_assets_v2', JSON.stringify(watchlist));
+            localStorage.setItem('my_balances_v2', JSON.stringify(balances));
+            localStorage.setItem('my_coin_sources', JSON.stringify(coinSources));
+            location.reload();
+        };
+        reader.readAsText(e.target.files[0]);
+    }
+    function resetApp() { if(confirm("Hapus SEMUA data?")) { localStorage.clear(); location.reload(); } }
     function exportToExcel() {
-        let csv = "sep=,\nKoin,Source,Saldo,Harga USD,Total USD,Total IDR\n";
-        watchlist.forEach(sym => {
-            const price = prices[sym.toUpperCase()] || 0;
-            (coinSources[sym] || []).forEach(src => {
-                const saldo = parseFloat(balances[sym]?.[src]) || 0;
-                if(saldo > 0) {
-                    const tUsd = saldo * price;
-                    csv += `${sym.toUpperCase()},${src},${saldo},${price.toFixed(2)},${tUsd.toFixed(2)},${Math.round(tUsd * usdToIdr)}\n`;
-                }
+        let csv = "sep=,\nKoin,Source,Saldo,Total IDR\n";
+        watchlist.forEach(s => {
+            (coinSources[s]||[]).forEach(src => {
+                const bal = balances[s]?.[src] || 0;
+                csv += `${s},${src},${bal},${Math.round(bal*(prices[s]||0)*usdToIdr)}\n`;
             });
         });
-        downloadFile(new Blob([csv], {type: 'text/csv'}), `EXCEL_PORTO_${getDate()}.csv`);
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+        a.download = "porto.csv"; a.click();
     }
-
-    function exportToHTML() {
-        let rows = "";
-        let totalVal = 0;
-        watchlist.forEach(sym => {
-            const price = prices[sym.toUpperCase()] || 0;
-            (coinSources[sym] || []).forEach(src => {
-                const saldo = parseFloat(balances[sym]?.[src]) || 0;
-                if(saldo > 0) {
-                    const tUsd = saldo * price; totalVal += tUsd;
-                    rows += `<tr><td>${sym.toUpperCase()}</td><td>${src}</td><td>${saldo}</td><td>$${price.toLocaleString()}</td><td>$
+</script>
+</body>
+</html>
