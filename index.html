@@ -176,7 +176,7 @@
                             <span style="font-size:11px; color:var(--subtext)">$${price.toLocaleString()}</span>
                         </div>
                         <div style="text-align:right; margin-right: 10px;">
-                            <span style="font-weight:bold; font-size:15px;">${coinTotal.toLocaleString()}</span><br>
+                            <span id="coin-total-${sym}" style="font-weight:bold; font-size:15px;">${coinTotal.toLocaleString()}</span><br>
                             <span style="font-size:10px; color:var(--subtext)">Rp ${(valUsd*usdToIdr).toLocaleString('id-ID')}</span>
                         </div>
                     </div>
@@ -185,7 +185,10 @@
                         ${(coinSources[sym]||[]).map(src => `
                             <div class="source-row">
                                 <span class="source-label" onclick="editSource('${sym}', '${src}')">${src} ✎</span>
-                                <input type="number" id="input-${sym}-${src}" class="source-input" inputmode="decimal" value="${balances[sym]?.[src]||''}" oninput="updateBal('${sym}','${src}',this.value)" placeholder="0">
+                                <input type="number" id="input-${sym}-${src}" class="source-input" inputmode="decimal" value="${balances[sym]?.[src]||''}" 
+                                    oninput="updateBal('${sym}','${src}',this.value)" 
+                                    onkeypress="if(event.key==='Enter'){ this.blur(); renderList(); }"
+                                    placeholder="0">
                                 <span class="del-src" onclick="removeSource('${sym}', '${src}')">×</span>
                             </div>
                         `).join('')}
@@ -201,8 +204,15 @@
     }
 
     function getCoinTotal(sym) { let t = 0; (coinSources[sym] || []).forEach(src => t += parseFloat(balances[sym]?.[src] || 0)); return t; }
+    
     function toggleDetail(s) { expandedCoin = (expandedCoin === s) ? null : s; renderList(); }
-    function updateBal(s, src, v) { if(!balances[s]) balances[s]={}; balances[s][src] = v; saveAll(); updateSummary(); }
+    
+    function updateBal(s, src, v) { 
+        if(!balances[s]) balances[s]={}; 
+        balances[s][src] = v; 
+        saveAll(); 
+        updateSummary(); 
+    }
     
     function addNewSource(sym) {
         const input = document.getElementById(`new-src-${sym}`);
@@ -212,28 +222,31 @@
             coinSources[sym].push(name);
             saveAll();
             renderList();
-            // Satset: Auto focus ke input saldo yang baru dibuat
             setTimeout(() => {
                 const targetInput = document.getElementById(`input-${sym}-${name}`);
-                if(targetInput) {
-                    targetInput.focus();
-                    targetInput.select();
-                }
+                if(targetInput) { targetInput.focus(); targetInput.select(); }
             }, 100);
         }
     }
 
     function updateSummary() {
-        let total = 0; watchlist.forEach(s => total += (getCoinTotal(s) * (prices[s] || 0)));
+        let total = 0; 
+        watchlist.forEach(s => {
+            const coinVal = getCoinTotal(s) * (prices[s] || 0);
+            total += coinVal;
+        });
         document.getElementById('total-all-idr').innerText = `Rp ${Math.round(total*usdToIdr).toLocaleString('id-ID')}`;
         document.getElementById('total-all-usd').innerText = `$${total.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
     }
+
     function addCoin() {
         const input = document.getElementById('search-input');
         const s = input.value.toUpperCase().trim();
         if(s && !watchlist.includes(s)) { watchlist.push(s); coinSources[s] = [...defaultSources]; saveAll(); input.value = ""; fetchAll(); }
     }
+
     function removeCoin(s) { if(confirm(`Hapus ${s}?`)) { watchlist = watchlist.filter(i => i !== s); delete balances[s]; delete coinSources[s]; saveAll(); renderList(); } }
+    
     function editSource(sym, old) {
         const n = prompt(`Ubah "${old}" jadi:`, old);
         if(n && n !== old) {
@@ -243,19 +256,29 @@
             saveAll(); renderList();
         }
     }
+
     function removeSource(sym, src) { if(confirm(`Hapus source ${src}?`)) { coinSources[sym] = coinSources[sym].filter(s => s !== src); if(balances[sym]) delete balances[sym][src]; saveAll(); renderList(); } }
-    function saveAll() { localStorage.setItem('my_assets_v2', JSON.stringify(watchlist)); localStorage.setItem('my_balances_v2', JSON.stringify(balances)); localStorage.setItem('my_coin_sources', JSON.stringify(coinSources)); }
+    
+    function saveAll() { 
+        localStorage.setItem('my_assets_v2', JSON.stringify(watchlist)); 
+        localStorage.setItem('my_balances_v2', JSON.stringify(balances)); 
+        localStorage.setItem('my_coin_sources', JSON.stringify(coinSources)); 
+    }
+
     function resetApp() { if(confirm("Hapus total semua data?")) { localStorage.clear(); location.reload(); } }
+
     function exportData() {
         const data = { assets: watchlist, balances: balances, sources: coinSources };
         const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], {type:'application/json'}));
         a.download = `BACKUP_PORTO_${new Date().toISOString().split('T')[0]}.json`; a.click();
     }
+
     function importData(e) {
         const reader = new FileReader();
         reader.onload = (f) => { try { const d = JSON.parse(f.target.result); watchlist = d.assets; balances = d.balances; coinSources = d.sources; saveAll(); location.reload(); } catch(err){alert("File rusak!")} };
         reader.readAsText(e.target.files[0]);
     }
+
     function exportToExcel() {
         let csv = "sep=,\nKoin,Source,Saldo,Harga USD,Total IDR\n";
         watchlist.forEach(s => { (coinSources[s]||[]).forEach(src => {
