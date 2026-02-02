@@ -10,50 +10,38 @@
         * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: var(--bg); color: var(--text); margin: 0; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 420px; padding: 20px 15px 100px 15px; }
-        
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .brand { font-size: 20px; font-weight: bold; color: var(--accent); }
         .kurs-info { font-size: 10px; color: var(--subtext); background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 8px; border: 1px solid #334155; }
-        
         .summary-card { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 16px; padding: 20px; margin-bottom: 20px; border: 1px solid var(--accent); text-align: center; }
         .summary-idr { font-size: 26px; font-weight: 800; display: block; }
-
         .filter-box { margin-bottom: 15px; }
         .filter-box input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid #334155; border-radius: 12px; padding: 12px 15px; color: white; outline: none; font-size: 14px; }
-
         .controls { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 15px; gap: 8px; }
         .sort-select { background: var(--card); color: white; border: 1px solid #334155; border-radius: 6px; font-size: 11px; padding: 4px; outline: none; }
-
         .coin-row { position: relative; margin-bottom: 10px; }
         .coin-card { background: var(--card); border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 10px; border: 1px solid #334155; cursor: pointer; position: relative; z-index: 2; }
-        .logo-wrapper { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; border: 1px solid #475569; flex-shrink: 0; background: #000; }
+        .logo-wrapper { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; border: 1px solid #475569; flex-shrink: 0; background: #000; display: flex; align-items: center; justify-content: center; }
         .logo-wrapper img { width: 100%; height: 100%; object-fit: cover; }
-
         .info-group { flex: 1; min-width: 0; }
         .symbol { font-size: 15px; font-weight: bold; }
         .change-pct { font-size: 10px; font-weight: bold; margin-left: 5px; }
         .up { color: var(--up); }
         .down { color: var(--down); }
-        
         .delete-coin { position: absolute; right: -25px; top: 50%; transform: translateY(-50%); color: var(--down); font-size: 20px; cursor: pointer; padding: 10px; }
-
         .details { background: #161e2e; margin: -10px 5px 10px 5px; padding: 20px 15px 15px 15px; border-radius: 0 0 12px 12px; border: 1px solid #334155; display: none; }
         .source-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 8px; }
         .source-label { font-size: 12px; color: var(--subtext); cursor: pointer; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .source-input { width: 100px; background: #000; border: 1px solid #475569; color: #fff; text-align: right; border-radius: 6px; padding: 4px; font-size: 13px; margin-left: auto; }
         .del-src { color: var(--down); font-size: 18px; cursor: pointer; margin-left: 8px; }
-
         .add-source-box { display: flex; gap: 5px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed #334155; }
         .add-source-box input { flex: 1; background: transparent; border: 1px dashed #475569; color: white; padding: 5px; border-radius: 6px; font-size: 11px; outline: none; }
-
         .add-section { margin-top: 40px; padding-top: 20px; border-top: 1px dashed #334155; }
         .search-box { display: flex; gap: 8px; margin-bottom: 20px; }
         .search-box input { flex: 1; background: var(--card); border: 1px solid #334155; color: white; padding: 12px; border-radius: 10px; outline: none; }
         .add-btn { background: var(--accent); border: none; padding: 0 20px; border-radius: 10px; font-weight: bold; cursor: pointer; }
-        
         .backup-section { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
         .backup-btn { background: transparent; border: 1px solid #334155; color: var(--subtext); padding: 10px; border-radius: 8px; font-size: 11px; cursor: pointer; text-align: center; }
-        
         .last-updated { text-align: center; font-size: 10px; color: var(--subtext); margin-top: 20px; }
     </style>
 </head>
@@ -63,17 +51,14 @@
         <div class="brand">PORTOFOLIO</div>
         <div id="kurs-live" class="kurs-info">USD/IDR: 16.000</div>
     </div>
-    
     <div class="summary-card">
         <span style="font-size: 11px; color: var(--accent); letter-spacing: 1px;">TOTAL SALDO</span>
         <span id="total-all-idr" class="summary-idr">Rp 0</span>
         <span id="total-all-usd" style="color: var(--subtext); font-size: 14px;">$0.00</span>
     </div>
-
     <div class="filter-box">
         <input type="text" id="filter-input" placeholder="Cari koin di list elu..." oninput="renderList()">
     </div>
-
     <div class="controls">
         <label style="font-size: 11px; color: var(--subtext);">Urutkan:</label>
         <select id="sort-order" class="sort-select" onchange="renderList()">
@@ -82,9 +67,7 @@
             <option value="value">Saldo Terbesar</option>
         </select>
     </div>
-
     <div id="main-list"></div>
-
     <div class="add-section">
         <div class="search-box">
             <input type="text" id="search-input" placeholder="Tambah koin baru (misal: SUI)">
@@ -105,78 +88,67 @@
     let usdToIdr = 16000;
     let prices = {};
     let changes = {};
-    let coinMapCG = {}; // Untuk menyimpan mapping ID CoinGecko
     const defaultSources = ["Binance", "Bybit", "OKX", "Bitget", "Gate"];
     let watchlist = JSON.parse(localStorage.getItem('my_assets_v2') || '["BTC", "ETH"]');
     let balances = JSON.parse(localStorage.getItem('my_balances_v2') || '{}');
     let coinSources = JSON.parse(localStorage.getItem('my_coin_sources') || '{}');
     let expandedCoin = null;
 
-    window.onload = async () => {
+    window.onload = () => {
         watchlist.forEach(s => { if(!coinSources[s]) coinSources[s] = [...defaultSources]; });
-        renderList();
-        await fetchCoinMap(); // Ambil list koin dari CG buat fallback
+        fetchKurs(); 
         fetchAll();
         setInterval(fetchAll, 60000);
+        setInterval(fetchKurs, 300000);
     };
 
-    // Fungsi ambil list koin CoinGecko buat nyari ID berdasarkan simbol
-    async function fetchCoinMap() {
+    async function fetchKurs() {
         try {
-            const r = await fetch('https://api.coingecko.com/api/v3/coins/list');
-            const data = await r.json();
-            data.forEach(c => { coinMapCG[c.symbol.toUpperCase()] = c.id; });
-        } catch(e) { console.log("Gagal ambil map CG"); }
+            const r = await fetch('https://open.er-api.com/v6/latest/USD');
+            const d = await r.json();
+            if(d.rates?.IDR) {
+                usdToIdr = d.rates.IDR;
+                document.getElementById('kurs-live').innerText = `USD/IDR: ${Math.round(usdToIdr).toLocaleString('id-ID')}`;
+            }
+        } catch(e) {}
     }
 
     async function fetchAll() {
-        // 1. Ambil Kurs USD/IDR
-        try {
-            const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=usd-coin&vs_currencies=idr');
-            const d = await r.json();
-            if(d['usd-coin']?.idr) { 
-                usdToIdr = d['usd-coin'].idr; 
-                document.getElementById('kurs-live').innerText = `USD/IDR: ${usdToIdr.toLocaleString('id-ID')}`; 
-            }
-        } catch(e) {}
-        
-        // 2. Ambil Harga Koin
         for (let s of watchlist) {
             try {
                 if(['USDT','USDC','USD'].includes(s)) { prices[s] = 1; changes[s] = "0.00"; continue; }
-                
-                // --- Taktik Bybit First ---
                 const rb = await fetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${s}USDT`);
                 const db = await rb.json();
-                
                 if(db.result?.list?.[0] && db.result.list[0].lastPrice !== "") {
                     const data = db.result.list[0];
                     prices[s] = parseFloat(data.lastPrice);
                     let prev = parseFloat(data.prevPrice24h);
                     changes[s] = (prev > 0) ? (((prices[s] - prev) / prev) * 100).toFixed(2) : "0.00";
                 } else {
-                    // --- Fallback ke CoinGecko ---
-                    const cgId = coinMapCG[s];
-                    if(cgId) {
-                        const rcg = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${cgId}&vs_currencies=usd&include_24hr_change=true`);
-                        const dcg = await rcg.json();
-                        if(dcg[cgId]) {
-                            prices[s] = dcg[cgId].usd;
-                            changes[s] = dcg[cgId].usd_24h_change ? dcg[cgId].usd_24h_change.toFixed(2) : "0.00";
-                        }
-                    } else {
-                        if(!prices[s]) prices[s] = 0;
-                        if(!changes[s]) changes[s] = "0.00";
-                    }
+                    const rs = await fetch(`https://api.binance.com/api/api/v3/ticker/24hr?symbol=${s}USDT`);
+                    const ds = await rs.json();
+                    if(ds.lastPrice) { prices[s] = parseFloat(ds.lastPrice); changes[s] = parseFloat(ds.priceChangePercent).toFixed(2); }
                 }
-            } catch(e) {
-                console.log(`Error fetch ${s}`);
-            }
+            } catch(e) {}
         }
-        
-        const now = new Date();
-        document.getElementById('last-updated').innerText = `Last Updated: ${now.toLocaleDateString('id-ID')} ${now.toLocaleTimeString('id-ID')}`;
+        document.getElementById('last-updated').innerText = `Last Updated: ${new Date().toLocaleTimeString('id-ID')}`;
         renderList();
+    }
+
+    // Taktik Logo Jitu (By Symbol)
+    function handleLogoError(img, sym) {
+        const retry = parseInt(img.getAttribute('data-retry') || "0");
+        const sources = [
+            `https://coinicons-api.vercel.app/api/icon/${sym.toLowerCase()}`, // Source 1
+            `https://assets.coincap.io/assets/icons/${sym.toLowerCase()}@2x.png`, // Source 2
+            `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${sym.toLowerCase()}.png`, // Source 3
+            `https://cdn-icons-png.flaticon.com/512/1041/1041888.png` // Final (Default)
+        ];
+        
+        if (retry < sources.length - 1) {
+            img.setAttribute('data-retry', retry + 1);
+            img.src = sources[retry + 1];
+        }
     }
 
     function renderList() {
@@ -202,7 +174,10 @@
             list.innerHTML += `
                 <div class="coin-row">
                     <div class="coin-card" onclick="toggleDetail('${sym}')">
-                        <div class="logo-wrapper"><img src="https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${sym.toLowerCase()}.png" onerror="this.src='https://cdn-icons-png.flaticon.com/512/1041/1041888.png'"></div>
+                        <div class="logo-wrapper">
+                            <img src="https://coinicons-api.vercel.app/api/icon/${sym.toLowerCase()}" 
+                                 onerror="handleLogoError(this, '${sym}')">
+                        </div>
                         <div class="info-group">
                             <span class="symbol">${sym}</span>
                             <span class="change-pct ${parseFloat(change) >= 0 ? 'up' : 'down'}">${parseFloat(change) >= 0 ? '+' : ''}${change}%</span><br>
@@ -239,35 +214,26 @@
     function getCoinTotal(sym) { let t = 0; (coinSources[sym] || []).forEach(src => t += parseFloat(balances[sym]?.[src] || 0)); return t; }
     function toggleDetail(s) { expandedCoin = (expandedCoin === s) ? null : s; renderList(); }
     function updateBal(s, src, v) { if(!balances[s]) balances[s]={}; balances[s][src] = v; saveAll(); updateSummary(); }
-    
     function addNewSource(sym) {
         const input = document.getElementById(`new-src-${sym}`);
         const name = input.value.trim();
         if(name) {
             if(!coinSources[sym]) coinSources[sym] = [];
             coinSources[sym].push(name);
-            saveAll();
-            renderList();
-            setTimeout(() => {
-                const targetInput = document.getElementById(`input-${sym}-${name}`);
-                if(targetInput) { targetInput.focus(); targetInput.select(); }
-            }, 100);
+            saveAll(); renderList();
+            setTimeout(() => { const targetInput = document.getElementById(`input-${sym}-${name}`); if(targetInput) { targetInput.focus(); targetInput.select(); } }, 100);
         }
     }
-
     function updateSummary() {
-        let total = 0; 
-        watchlist.forEach(s => total += (getCoinTotal(s) * (prices[s] || 0)));
+        let total = 0; watchlist.forEach(s => total += (getCoinTotal(s) * (prices[s] || 0)));
         document.getElementById('total-all-idr').innerText = `Rp ${Math.round(total*usdToIdr).toLocaleString('id-ID')}`;
         document.getElementById('total-all-usd').innerText = `$${total.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
     }
-
     function addCoin() {
         const input = document.getElementById('search-input');
         const s = input.value.toUpperCase().trim();
         if(s && !watchlist.includes(s)) { watchlist.push(s); coinSources[s] = [...defaultSources]; saveAll(); input.value = ""; fetchAll(); }
     }
-
     function removeCoin(s) { if(confirm(`Hapus ${s}?`)) { watchlist = watchlist.filter(i => i !== s); delete balances[s]; delete coinSources[s]; saveAll(); renderList(); } }
     function saveAll() { localStorage.setItem('my_assets_v2', JSON.stringify(watchlist)); localStorage.setItem('my_balances_v2', JSON.stringify(balances)); localStorage.setItem('my_coin_sources', JSON.stringify(coinSources)); }
     function resetApp() { if(confirm("Hapus total semua data?")) { localStorage.clear(); location.reload(); } }
