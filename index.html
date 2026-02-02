@@ -26,7 +26,7 @@
 
         .coin-row { position: relative; margin-bottom: 10px; }
         .coin-card { background: var(--card); border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 10px; border: 1px solid #334155; cursor: pointer; position: relative; z-index: 2; }
-        .logo-wrapper { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; border: 1px solid #475569; flex-shrink: 0; background: #000; }
+        .logo-wrapper { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; border: 1px solid #475569; flex-shrink: 0; background: #000; display: flex; align-items: center; justify-content: center; }
         .logo-wrapper img { width: 100%; height: 100%; object-fit: cover; }
 
         .info-group { flex: 1; min-width: 0; }
@@ -105,7 +105,7 @@
     let usdToIdr = 16000;
     let prices = {};
     let changes = {};
-    let coinMapCG = {}; // Untuk menyimpan mapping ID CoinGecko
+    let coinMapCG = {};
     const defaultSources = ["Binance", "Bybit", "OKX", "Bitget", "Gate"];
     let watchlist = JSON.parse(localStorage.getItem('my_assets_v2') || '["BTC", "ETH"]');
     let balances = JSON.parse(localStorage.getItem('my_balances_v2') || '{}');
@@ -115,22 +115,20 @@
     window.onload = async () => {
         watchlist.forEach(s => { if(!coinSources[s]) coinSources[s] = [...defaultSources]; });
         renderList();
-        await fetchCoinMap(); // Ambil list koin dari CG buat fallback
+        await fetchCoinMap();
         fetchAll();
         setInterval(fetchAll, 60000);
     };
 
-    // Fungsi ambil list koin CoinGecko buat nyari ID berdasarkan simbol
     async function fetchCoinMap() {
         try {
             const r = await fetch('https://api.coingecko.com/api/v3/coins/list');
             const data = await r.json();
             data.forEach(c => { coinMapCG[c.symbol.toUpperCase()] = c.id; });
-        } catch(e) { console.log("Gagal ambil map CG"); }
+        } catch(e) {}
     }
 
     async function fetchAll() {
-        // 1. Ambil Kurs USD/IDR
         try {
             const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=usd-coin&vs_currencies=idr');
             const d = await r.json();
@@ -140,22 +138,17 @@
             }
         } catch(e) {}
         
-        // 2. Ambil Harga Koin
         for (let s of watchlist) {
             try {
                 if(['USDT','USDC','USD'].includes(s)) { prices[s] = 1; changes[s] = "0.00"; continue; }
-                
-                // --- Taktik Bybit First ---
                 const rb = await fetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${s}USDT`);
                 const db = await rb.json();
-                
                 if(db.result?.list?.[0] && db.result.list[0].lastPrice !== "") {
                     const data = db.result.list[0];
                     prices[s] = parseFloat(data.lastPrice);
                     let prev = parseFloat(data.prevPrice24h);
                     changes[s] = (prev > 0) ? (((prices[s] - prev) / prev) * 100).toFixed(2) : "0.00";
                 } else {
-                    // --- Fallback ke CoinGecko ---
                     const cgId = coinMapCG[s];
                     if(cgId) {
                         const rcg = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${cgId}&vs_currencies=usd&include_24hr_change=true`);
@@ -164,19 +157,32 @@
                             prices[s] = dcg[cgId].usd;
                             changes[s] = dcg[cgId].usd_24h_change ? dcg[cgId].usd_24h_change.toFixed(2) : "0.00";
                         }
-                    } else {
-                        if(!prices[s]) prices[s] = 0;
-                        if(!changes[s]) changes[s] = "0.00";
                     }
                 }
-            } catch(e) {
-                console.log(`Error fetch ${s}`);
-            }
+            } catch(e) {}
         }
-        
         const now = new Date();
         document.getElementById('last-updated').innerText = `Last Updated: ${now.toLocaleDateString('id-ID')} ${now.toLocaleTimeString('id-ID')}`;
         renderList();
+    }
+
+    // Fungsi canggih buat fallback logo
+    function getLogoUrl(sym) {
+        // Source 1: Trust Wallet (Paling Lengkap)
+        // Source 2: Spothq GitHub (Cadangan)
+        return `https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/${sym}/logo.png`; 
+    }
+
+    // Trik onerror buat muter source logo
+    function handleLogoError(img, sym) {
+        if (img.getAttribute('data-retry') === '1') {
+            // Jika sudah Spothq tapi gagal juga, kasih icon default
+            img.src = 'https://cdn-icons-png.flaticon.com/512/1041/1041888.png';
+            return;
+        }
+        // Ganti ke Spothq GitHub
+        img.setAttribute('data-retry', '1');
+        img.src = `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${sym.toLowerCase()}.png`;
     }
 
     function renderList() {
@@ -202,7 +208,10 @@
             list.innerHTML += `
                 <div class="coin-row">
                     <div class="coin-card" onclick="toggleDetail('${sym}')">
-                        <div class="logo-wrapper"><img src="https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${sym.toLowerCase()}.png" onerror="this.src='https://cdn-icons-png.flaticon.com/512/1041/1041888.png'"></div>
+                        <div class="logo-wrapper">
+                            <img src="https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${sym.toLowerCase()}.png" 
+                                 onerror="handleLogoError(this, '${sym}')">
+                        </div>
                         <div class="info-group">
                             <span class="symbol">${sym}</span>
                             <span class="change-pct ${parseFloat(change) >= 0 ? 'up' : 'down'}">${parseFloat(change) >= 0 ? '+' : ''}${change}%</span><br>
@@ -239,7 +248,6 @@
     function getCoinTotal(sym) { let t = 0; (coinSources[sym] || []).forEach(src => t += parseFloat(balances[sym]?.[src] || 0)); return t; }
     function toggleDetail(s) { expandedCoin = (expandedCoin === s) ? null : s; renderList(); }
     function updateBal(s, src, v) { if(!balances[s]) balances[s]={}; balances[s][src] = v; saveAll(); updateSummary(); }
-    
     function addNewSource(sym) {
         const input = document.getElementById(`new-src-${sym}`);
         const name = input.value.trim();
@@ -254,20 +262,17 @@
             }, 100);
         }
     }
-
     function updateSummary() {
         let total = 0; 
         watchlist.forEach(s => total += (getCoinTotal(s) * (prices[s] || 0)));
         document.getElementById('total-all-idr').innerText = `Rp ${Math.round(total*usdToIdr).toLocaleString('id-ID')}`;
         document.getElementById('total-all-usd').innerText = `$${total.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
     }
-
     function addCoin() {
         const input = document.getElementById('search-input');
         const s = input.value.toUpperCase().trim();
         if(s && !watchlist.includes(s)) { watchlist.push(s); coinSources[s] = [...defaultSources]; saveAll(); input.value = ""; fetchAll(); }
     }
-
     function removeCoin(s) { if(confirm(`Hapus ${s}?`)) { watchlist = watchlist.filter(i => i !== s); delete balances[s]; delete coinSources[s]; saveAll(); renderList(); } }
     function saveAll() { localStorage.setItem('my_assets_v2', JSON.stringify(watchlist)); localStorage.setItem('my_balances_v2', JSON.stringify(balances)); localStorage.setItem('my_coin_sources', JSON.stringify(coinSources)); }
     function resetApp() { if(confirm("Hapus total semua data?")) { localStorage.clear(); location.reload(); } }
