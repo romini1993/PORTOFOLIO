@@ -31,6 +31,10 @@
 
         .info-group { flex: 1; min-width: 0; }
         .symbol { font-size: 15px; font-weight: bold; }
+        .change-pct { font-size: 10px; font-weight: bold; margin-left: 5px; }
+        .up { color: var(--up); }
+        .down { color: var(--down); }
+        
         .delete-coin { position: absolute; right: -25px; top: 50%; transform: translateY(-50%); color: var(--down); font-size: 20px; cursor: pointer; padding: 10px; }
 
         .details { background: #161e2e; margin: -10px 5px 10px 5px; padding: 20px 15px 15px 15px; border-radius: 0 0 12px 12px; border: 1px solid #334155; display: none; }
@@ -100,6 +104,7 @@
 <script>
     let usdToIdr = 16000;
     let prices = {};
+    let changes = {};
     const defaultSources = ["Binance", "Bybit", "OKX", "Bitget", "Gate"];
     let watchlist = JSON.parse(localStorage.getItem('my_assets_v2') || '["BTC", "ETH"]');
     let balances = JSON.parse(localStorage.getItem('my_balances_v2') || '{}');
@@ -109,7 +114,7 @@
     window.onload = () => {
         watchlist.forEach(s => { if(!coinSources[s]) coinSources[s] = [...defaultSources]; });
         renderList(); fetchAll();
-        setInterval(fetchAll, 60000); // Auto refresh tiap 1 menit
+        setInterval(fetchAll, 60000);
     };
 
     async function fetchAll() {
@@ -124,10 +129,15 @@
         
         for (let s of watchlist) {
             try {
-                if(['USDT','USDC','USD'].includes(s)) { prices[s] = 1; continue; }
+                if(['USDT','USDC','USD'].includes(s)) { prices[s] = 1; changes[s] = "0.00"; continue; }
                 const r = await fetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${s}USDT`);
                 const d = await r.json();
-                if(d.result?.list?.[0]) prices[s] = parseFloat(d.result.list[0].lastPrice);
+                if(d.result?.list?.[0]) {
+                    const data = d.result.list[0];
+                    prices[s] = parseFloat(data.lastPrice);
+                    let prev = parseFloat(data.prevPrice24h);
+                    changes[s] = (prev > 0) ? (((prices[s] - prev) / prev) * 100).toFixed(2) : "0.00";
+                }
             } catch(e) {}
         }
         
@@ -151,6 +161,7 @@
 
         filtered.forEach(sym => {
             const price = prices[sym] || 0;
+            const change = changes[sym] || "0.00";
             const coinTotal = getCoinTotal(sym);
             const valUsd = coinTotal * price;
             totalAllUsd += valUsd;
@@ -160,7 +171,8 @@
                     <div class="coin-card" onclick="toggleDetail('${sym}')">
                         <div class="logo-wrapper"><img src="https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${sym.toLowerCase()}.png" onerror="this.src='https://cdn-icons-png.flaticon.com/512/1041/1041888.png'"></div>
                         <div class="info-group">
-                            <span class="symbol">${sym}</span><br>
+                            <span class="symbol">${sym}</span>
+                            <span class="change-pct ${parseFloat(change) >= 0 ? 'up' : 'down'}">${parseFloat(change) >= 0 ? '+' : ''}${change}%</span><br>
                             <span style="font-size:11px; color:var(--subtext)">$${price.toLocaleString()}</span>
                         </div>
                         <div style="text-align:right; margin-right: 10px;">
@@ -173,12 +185,12 @@
                         ${(coinSources[sym]||[]).map(src => `
                             <div class="source-row">
                                 <span class="source-label" onclick="editSource('${sym}', '${src}')">${src} ✎</span>
-                                <input type="number" class="source-input" value="${balances[sym]?.[src]||''}" oninput="updateBal('${sym}','${src}',this.value)" placeholder="0">
+                                <input type="number" id="input-${sym}-${src}" class="source-input" inputmode="decimal" value="${balances[sym]?.[src]||''}" oninput="updateBal('${sym}','${src}',this.value)" placeholder="0">
                                 <span class="del-src" onclick="removeSource('${sym}', '${src}')">×</span>
                             </div>
                         `).join('')}
                         <div class="add-source-box">
-                            <input type="text" id="new-src-${sym}" placeholder="Tambah source (Wallet/Lainnya)...">
+                            <input type="text" id="new-src-${sym}" placeholder="Tambah source (Wallet/Lainnya)..." onkeypress="if(event.key==='Enter') addNewSource('${sym}')">
                             <button style="background:var(--accent); border:none; border-radius:4px; font-size:10px; font-weight:bold; padding:4px 10px;" onclick="addNewSource('${sym}')">OK</button>
                         </div>
                     </div>
@@ -191,6 +203,26 @@
     function getCoinTotal(sym) { let t = 0; (coinSources[sym] || []).forEach(src => t += parseFloat(balances[sym]?.[src] || 0)); return t; }
     function toggleDetail(s) { expandedCoin = (expandedCoin === s) ? null : s; renderList(); }
     function updateBal(s, src, v) { if(!balances[s]) balances[s]={}; balances[s][src] = v; saveAll(); updateSummary(); }
+    
+    function addNewSource(sym) {
+        const input = document.getElementById(`new-src-${sym}`);
+        const name = input.value.trim();
+        if(name) {
+            if(!coinSources[sym]) coinSources[sym] = [];
+            coinSources[sym].push(name);
+            saveAll();
+            renderList();
+            // Satset: Auto focus ke input saldo yang baru dibuat
+            setTimeout(() => {
+                const targetInput = document.getElementById(`input-${sym}-${name}`);
+                if(targetInput) {
+                    targetInput.focus();
+                    targetInput.select();
+                }
+            }, 100);
+        }
+    }
+
     function updateSummary() {
         let total = 0; watchlist.forEach(s => total += (getCoinTotal(s) * (prices[s] || 0)));
         document.getElementById('total-all-idr').innerText = `Rp ${Math.round(total*usdToIdr).toLocaleString('id-ID')}`;
@@ -202,15 +234,6 @@
         if(s && !watchlist.includes(s)) { watchlist.push(s); coinSources[s] = [...defaultSources]; saveAll(); input.value = ""; fetchAll(); }
     }
     function removeCoin(s) { if(confirm(`Hapus ${s}?`)) { watchlist = watchlist.filter(i => i !== s); delete balances[s]; delete coinSources[s]; saveAll(); renderList(); } }
-    function addNewSource(sym) {
-        const input = document.getElementById(`new-src-${sym}`);
-        const name = input.value.trim();
-        if(name) {
-            if(!coinSources[sym]) coinSources[sym] = [];
-            coinSources[sym].push(name);
-            saveAll(); renderList();
-        }
-    }
     function editSource(sym, old) {
         const n = prompt(`Ubah "${old}" jadi:`, old);
         if(n && n !== old) {
