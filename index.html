@@ -32,6 +32,12 @@
         .summary-idr { font-size: 26px; font-weight: 800; display: block; color: #fff; }
         .summary-usd { font-size: 14px; color: var(--subtext); margin-top: 5px; display: block; }
 
+        .list-filter-box { margin-bottom: 15px; }
+        .list-filter-box input {
+            width: 100%; background: rgba(255,255,255,0.05); border: 1px solid #334155;
+            border-radius: 10px; padding: 10px 15px; color: white; outline: none; font-size: 13px;
+        }
+
         .controls { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 15px; gap: 8px; }
         .sort-select { background: var(--card); color: white; border: 1px solid #334155; border-radius: 6px; font-size: 11px; padding: 4px; outline: none; }
 
@@ -75,6 +81,14 @@
         .search-box { display: flex; gap: 8px; }
         .search-box input { background: var(--card); border: 1px solid #334155; border-radius: 10px; padding: 12px; color: white; width: 100%; outline: none; }
         .add-btn { background: var(--accent); border: none; color: #0f172a; border-radius: 10px; padding: 0 20px; font-weight: bold; }
+
+        .backup-section { margin-top: 40px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+        .backup-btn { 
+            background: transparent; border: 1px solid #334155; color: var(--subtext); 
+            padding: 8px 12px; border-radius: 8px; font-size: 10px; cursor: pointer; 
+            display: flex; align-items: center; gap: 5px; flex: 1; min-width: 100px; justify-content: center;
+        }
+        .backup-btn:hover { border-color: var(--accent); color: white; }
     </style>
 </head>
 <body>
@@ -94,6 +108,10 @@
         <span id="total-all-usd" class="summary-usd">$0.00</span><br>
     </div>
 
+    <div class="list-filter-box">
+        <input type="text" id="filter-input" placeholder="Cari koin di list elu..." oninput="renderList()">
+    </div>
+
     <div class="controls">
         <label style="font-size: 11px; color: var(--subtext);">Urutkan:</label>
         <select id="sort-order" class="sort-select" onchange="renderList()">
@@ -107,33 +125,35 @@
 
     <div class="search-section">
         <div class="search-box">
-            <input type="text" id="search-input" placeholder="Tambah koin (misal: SUI)">
+            <input type="text" id="search-input" placeholder="Tambah koin baru (misal: SUI)">
             <button class="add-btn" onclick="addCoin()">+</button>
         </div>
+    </div>
+
+    <div class="backup-section">
+        <button class="backup-btn" onclick="exportData()">📤 Backup JSON</button>
+        <button class="backup-btn" onclick="exportToExcel()">📊 Export Excel</button>
+        <button class="backup-btn" onclick="document.getElementById('importFile').click()">📥 Import JSON</button>
+        <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
     </div>
 </div>
 
 <script>
-    // --- FITUR INSTAL (MANIFEST GENERATOR) ---
+    // --- MANIFEST VIRTUAL ---
     const manifest = {
         "name": "Portofolio",
-        "short_name": "Portofolio",
+        "short_name": "Porto",
         "start_url": window.location.href,
         "display": "standalone",
         "background_color": "#0f172a",
         "theme_color": "#0f172a",
-        "icons": [{
-            "src": "https://cdn-icons-png.flaticon.com/512/858/858690.png",
-            "sizes": "512x512",
-            "type": "image/png"
-        }]
+        "icons": [{"src": "https://cdn-icons-png.flaticon.com/512/858/858690.png", "sizes": "512x512", "type": "image/png"}]
     };
-    const stringManifest = JSON.stringify(manifest);
-    const blob = new Blob([stringManifest], {type: 'application/json'});
-    const manifestURL = URL.createObjectURL(blob);
+    const blobManifest = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+    const manifestURL = URL.createObjectURL(blobManifest);
     document.querySelector('head').insertAdjacentHTML('beforeend', `<link rel="manifest" href="${manifestURL}">`);
 
-    // --- LOGIKA APLIKASI ---
+    // --- DATA STATE ---
     let usdToIdr = parseFloat(localStorage.getItem('last_usd_idr')) || 16000;
     let prices = JSON.parse(localStorage.getItem('last_prices') || '{}');
     let changes = JSON.parse(localStorage.getItem('last_changes') || '{}');
@@ -149,6 +169,55 @@
         fetchAll();
     };
 
+    // --- FITUR BACKUP & EXCEL ---
+    function exportData() {
+        const data = { assets: watchlist, balances: balances, sources: coinSources, date: new Date().toISOString() };
+        const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `Backup_Porto_${new Date().toLocaleDateString()}.json`;
+        a.click();
+    }
+
+    function exportToExcel() {
+        let csv = "Koin,Source,Saldo,Harga USD,Total USD,Total IDR\n";
+        watchlist.forEach(sym => {
+            const price = prices[sym.toUpperCase()] || 0;
+            (coinSources[sym] || []).forEach(src => {
+                const saldo = parseFloat(balances[sym]?.[src]) || 0;
+                if(saldo > 0) {
+                    const tUsd = saldo * price;
+                    csv += `${sym},${src},${saldo},${price},${tUsd.toFixed(2)},${Math.round(tUsd * usdToIdr)}\n`;
+                }
+            });
+        });
+        const blob = new Blob([csv], {type: 'text/csv'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `Laporan_Porto_${new Date().toLocaleDateString()}.csv`;
+        a.click();
+    }
+
+    function importData(event) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (data.assets && data.balances) {
+                    if (confirm("Restore data dari backup?")) {
+                        watchlist = data.assets; balances = data.balances; coinSources = data.sources || {};
+                        localStorage.setItem('my_assets_v2', JSON.stringify(watchlist));
+                        localStorage.setItem('my_balances_v2', JSON.stringify(balances));
+                        localStorage.setItem('my_coin_sources', JSON.stringify(coinSources));
+                        location.reload();
+                    }
+                }
+            } catch (err) { alert("File rusak!"); }
+        };
+        reader.readAsText(event.target.files[0]);
+    }
+
+    // --- LOGIKA UTAMA ---
     async function fetchAll() {
         try {
             const rKurs = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=usd-coin&vs_currencies=idr');
@@ -181,17 +250,15 @@
 
     function renderList() {
         const listContainer = document.getElementById('main-list');
+        const filterVal = document.getElementById('filter-input').value.toUpperCase();
         if (!listContainer) return;
+        
         const sortType = document.getElementById('sort-order').value;
-        let sortedList = [...watchlist];
+        let sortedList = watchlist.filter(sym => sym.toUpperCase().includes(filterVal));
 
         if (sortType === 'name') sortedList.sort((a, b) => a.localeCompare(b));
         if (sortType === 'value') {
-            sortedList.sort((a, b) => {
-                let valA = getTotal(a) * (prices[a.toUpperCase()] || 0);
-                let valB = getTotal(b) * (prices[b.toUpperCase()] || 0);
-                return valB - valA;
-            });
+            sortedList.sort((a, b) => (getTotal(b) * (prices[b.toUpperCase()] || 0)) - (getTotal(a) * (prices[a.toUpperCase()] || 0)));
         }
 
         listContainer.innerHTML = "";
@@ -225,7 +292,7 @@
                     <div id="detail-${sym}" class="details" style="display: ${expandedCoin === sym ? 'block' : 'none'}">
                         ${(coinSources[sym] || []).map(src => `
                             <div class="source-row">
-                                <span style="font-size: 12px; color: var(--subtext)">${src}</span>
+                                <span style="font-size: 11px; color: var(--subtext)">${src}</span>
                                 <div style="display:flex; align-items:center;">
                                     <input type="number" class="source-input" value="${balances[sym]?.[src] || ''}" oninput="updateBalance('${sym}', '${src}', this.value)" placeholder="0">
                                     <span class="del-src" onclick="removeSource('${sym}', '${src}')">×</span>
@@ -240,7 +307,10 @@
                 </div>
             `;
         });
-        updateGrandUI(totalAllUsd);
+        
+        let totalReal = 0;
+        watchlist.forEach(s => { totalReal += (getTotal(s) * (prices[s.toUpperCase()] || 0)); });
+        updateGrandUI(totalReal);
     }
 
     function getTotal(sym) {
