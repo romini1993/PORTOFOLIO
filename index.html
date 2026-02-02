@@ -35,17 +35,22 @@
 
         .details { background: #161e2e; margin: -10px 5px 10px 5px; padding: 20px 15px 15px 15px; border-radius: 0 0 12px 12px; border: 1px solid #334155; display: none; }
         .source-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 8px; }
-        .source-label { font-size: 12px; color: var(--subtext); cursor: pointer; }
-        .source-input { width: 90px; background: #000; border: 1px solid #475569; color: #fff; text-align: right; border-radius: 6px; padding: 4px; font-size: 13px; }
-        .del-src { color: var(--down); font-size: 18px; cursor: pointer; margin-left: 5px; }
+        .source-label { font-size: 12px; color: var(--subtext); cursor: pointer; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .source-input { width: 100px; background: #000; border: 1px solid #475569; color: #fff; text-align: right; border-radius: 6px; padding: 4px; font-size: 13px; margin-left: auto; }
+        .del-src { color: var(--down); font-size: 18px; cursor: pointer; margin-left: 8px; }
+
+        .add-source-box { display: flex; gap: 5px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed #334155; }
+        .add-source-box input { flex: 1; background: transparent; border: 1px dashed #475569; color: white; padding: 5px; border-radius: 6px; font-size: 11px; outline: none; }
 
         .add-section { margin-top: 40px; padding-top: 20px; border-top: 1px dashed #334155; }
         .search-box { display: flex; gap: 8px; margin-bottom: 20px; }
         .search-box input { flex: 1; background: var(--card); border: 1px solid #334155; color: white; padding: 12px; border-radius: 10px; outline: none; }
         .add-btn { background: var(--accent); border: none; padding: 0 20px; border-radius: 10px; font-weight: bold; cursor: pointer; }
         
-        .backup-section { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .backup-section { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
         .backup-btn { background: transparent; border: 1px solid #334155; color: var(--subtext); padding: 10px; border-radius: 8px; font-size: 11px; cursor: pointer; text-align: center; }
+        
+        .last-updated { text-align: center; font-size: 10px; color: var(--subtext); margin-top: 20px; }
     </style>
 </head>
 <body>
@@ -88,6 +93,7 @@
             <button class="backup-btn" onclick="resetApp()" style="color:var(--down)">⚠️ Reset App</button>
             <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
         </div>
+        <div id="last-updated" class="last-updated">Last Updated: ---</div>
     </div>
 </div>
 
@@ -103,14 +109,19 @@
     window.onload = () => {
         watchlist.forEach(s => { if(!coinSources[s]) coinSources[s] = [...defaultSources]; });
         renderList(); fetchAll();
+        setInterval(fetchAll, 60000); // Auto refresh tiap 1 menit
     };
 
     async function fetchAll() {
         try {
             const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=usd-coin&vs_currencies=idr');
             const d = await r.json();
-            if(d['usd-coin'].idr) { usdToIdr = d['usd-coin'].idr; document.getElementById('kurs-live').innerText = `USD/IDR: ${usdToIdr.toLocaleString('id-ID')}`; }
+            if(d['usd-coin']?.idr) { 
+                usdToIdr = d['usd-coin'].idr; 
+                document.getElementById('kurs-live').innerText = `USD/IDR: ${usdToIdr.toLocaleString('id-ID')}`; 
+            }
         } catch(e) {}
+        
         for (let s of watchlist) {
             try {
                 if(['USDT','USDC','USD'].includes(s)) { prices[s] = 1; continue; }
@@ -119,6 +130,9 @@
                 if(d.result?.list?.[0]) prices[s] = parseFloat(d.result.list[0].lastPrice);
             } catch(e) {}
         }
+        
+        const now = new Date();
+        document.getElementById('last-updated').innerText = `Last Updated: ${now.toLocaleDateString('id-ID')} ${now.toLocaleTimeString('id-ID')}`;
         renderList();
     }
 
@@ -163,6 +177,10 @@
                                 <span class="del-src" onclick="removeSource('${sym}', '${src}')">×</span>
                             </div>
                         `).join('')}
+                        <div class="add-source-box">
+                            <input type="text" id="new-src-${sym}" placeholder="Tambah source (Wallet/Lainnya)...">
+                            <button style="background:var(--accent); border:none; border-radius:4px; font-size:10px; font-weight:bold; padding:4px 10px;" onclick="addNewSource('${sym}')">OK</button>
+                        </div>
                     </div>
                 </div>`;
         });
@@ -184,6 +202,15 @@
         if(s && !watchlist.includes(s)) { watchlist.push(s); coinSources[s] = [...defaultSources]; saveAll(); input.value = ""; fetchAll(); }
     }
     function removeCoin(s) { if(confirm(`Hapus ${s}?`)) { watchlist = watchlist.filter(i => i !== s); delete balances[s]; delete coinSources[s]; saveAll(); renderList(); } }
+    function addNewSource(sym) {
+        const input = document.getElementById(`new-src-${sym}`);
+        const name = input.value.trim();
+        if(name) {
+            if(!coinSources[sym]) coinSources[sym] = [];
+            coinSources[sym].push(name);
+            saveAll(); renderList();
+        }
+    }
     function editSource(sym, old) {
         const n = prompt(`Ubah "${old}" jadi:`, old);
         if(n && n !== old) {
@@ -193,7 +220,7 @@
             saveAll(); renderList();
         }
     }
-    function removeSource(sym, src) { if(confirm(`Hapus ${src}?`)) { coinSources[sym] = coinSources[sym].filter(s => s !== src); if(balances[sym]) delete balances[sym][src]; saveAll(); renderList(); } }
+    function removeSource(sym, src) { if(confirm(`Hapus source ${src}?`)) { coinSources[sym] = coinSources[sym].filter(s => s !== src); if(balances[sym]) delete balances[sym][src]; saveAll(); renderList(); } }
     function saveAll() { localStorage.setItem('my_assets_v2', JSON.stringify(watchlist)); localStorage.setItem('my_balances_v2', JSON.stringify(balances)); localStorage.setItem('my_coin_sources', JSON.stringify(coinSources)); }
     function resetApp() { if(confirm("Hapus total semua data?")) { localStorage.clear(); location.reload(); } }
     function exportData() {
@@ -203,7 +230,7 @@
     }
     function importData(e) {
         const reader = new FileReader();
-        reader.onload = (f) => { const d = JSON.parse(f.target.result); watchlist = d.assets; balances = d.balances; coinSources = d.sources; saveAll(); location.reload(); };
+        reader.onload = (f) => { try { const d = JSON.parse(f.target.result); watchlist = d.assets; balances = d.balances; coinSources = d.sources; saveAll(); location.reload(); } catch(err){alert("File rusak!")} };
         reader.readAsText(e.target.files[0]);
     }
     function exportToExcel() {
