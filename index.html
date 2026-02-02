@@ -82,11 +82,11 @@
         .search-box input { background: var(--card); border: 1px solid #334155; border-radius: 10px; padding: 12px; color: white; width: 100%; outline: none; }
         .add-btn { background: var(--accent); border: none; color: #0f172a; border-radius: 10px; padding: 0 20px; font-weight: bold; }
 
-        .backup-section { margin-top: 40px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+        .backup-section { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .backup-btn { 
             background: transparent; border: 1px solid #334155; color: var(--subtext); 
-            padding: 8px 12px; border-radius: 8px; font-size: 10px; cursor: pointer; 
-            display: flex; align-items: center; gap: 5px; flex: 1; min-width: 100px; justify-content: center;
+            padding: 10px; border-radius: 8px; font-size: 10px; cursor: pointer; 
+            display: flex; align-items: center; gap: 5px; justify-content: center;
         }
         .backup-btn:hover { border-color: var(--accent); color: white; }
     </style>
@@ -109,7 +109,7 @@
     </div>
 
     <div class="list-filter-box">
-        <input type="text" id="filter-input" placeholder="Cari koin di list elu..." oninput="renderList()">
+        <input type="text" id="filter-input" placeholder="Cari koin di list..." oninput="renderList()">
     </div>
 
     <div class="controls">
@@ -133,27 +133,19 @@
     <div class="backup-section">
         <button class="backup-btn" onclick="exportData()">📤 Backup JSON</button>
         <button class="backup-btn" onclick="exportToExcel()">📊 Export Excel</button>
+        <button class="backup-btn" onclick="exportToHTML()">🎨 Laporan Cantik</button>
         <button class="backup-btn" onclick="document.getElementById('importFile').click()">📥 Import JSON</button>
         <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
     </div>
 </div>
 
 <script>
-    // --- MANIFEST VIRTUAL ---
-    const manifest = {
-        "name": "Portofolio",
-        "short_name": "Porto",
-        "start_url": window.location.href,
-        "display": "standalone",
-        "background_color": "#0f172a",
-        "theme_color": "#0f172a",
-        "icons": [{"src": "https://cdn-icons-png.flaticon.com/512/858/858690.png", "sizes": "512x512", "type": "image/png"}]
-    };
+    // --- MANIFEST ---
+    const manifest = { "name": "Portofolio", "short_name": "Porto", "start_url": window.location.href, "display": "standalone", "background_color": "#0f172a", "theme_color": "#0f172a", "icons": [{"src": "https://cdn-icons-png.flaticon.com/512/858/858690.png", "sizes": "512x512", "type": "image/png"}] };
     const blobManifest = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
-    const manifestURL = URL.createObjectURL(blobManifest);
-    document.querySelector('head').insertAdjacentHTML('beforeend', `<link rel="manifest" href="${manifestURL}">`);
+    document.querySelector('head').insertAdjacentHTML('beforeend', `<link rel="manifest" href="${URL.createObjectURL(blobManifest)}">`);
 
-    // --- DATA STATE ---
+    // --- DATA ---
     let usdToIdr = parseFloat(localStorage.getItem('last_usd_idr')) || 16000;
     let prices = JSON.parse(localStorage.getItem('last_prices') || '{}');
     let changes = JSON.parse(localStorage.getItem('last_changes') || '{}');
@@ -169,218 +161,34 @@
         fetchAll();
     };
 
-    // --- FITUR BACKUP & EXCEL ---
+    // --- FITUR EXPORT / IMPORT ---
     function exportData() {
         const data = { assets: watchlist, balances: balances, sources: coinSources, date: new Date().toISOString() };
-        const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `Backup_Porto_${new Date().toLocaleDateString()}.json`;
-        a.click();
+        downloadFile(new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'}), `BACKUP_PORTO_${getDate()}.json`);
     }
 
     function exportToExcel() {
-        let csv = "Koin,Source,Saldo,Harga USD,Total USD,Total IDR\n";
+        let csv = "sep=,\nKoin,Source,Saldo,Harga USD,Total USD,Total IDR\n";
         watchlist.forEach(sym => {
             const price = prices[sym.toUpperCase()] || 0;
             (coinSources[sym] || []).forEach(src => {
                 const saldo = parseFloat(balances[sym]?.[src]) || 0;
                 if(saldo > 0) {
                     const tUsd = saldo * price;
-                    csv += `${sym},${src},${saldo},${price},${tUsd.toFixed(2)},${Math.round(tUsd * usdToIdr)}\n`;
+                    csv += `${sym.toUpperCase()},${src},${saldo},${price.toFixed(2)},${tUsd.toFixed(2)},${Math.round(tUsd * usdToIdr)}\n`;
                 }
             });
         });
-        const blob = new Blob([csv], {type: 'text/csv'});
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `Laporan_Porto_${new Date().toLocaleDateString()}.csv`;
-        a.click();
+        downloadFile(new Blob([csv], {type: 'text/csv'}), `EXCEL_PORTO_${getDate()}.csv`);
     }
 
-    function importData(event) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const data = JSON.parse(e.target.result);
-                if (data.assets && data.balances) {
-                    if (confirm("Restore data dari backup?")) {
-                        watchlist = data.assets; balances = data.balances; coinSources = data.sources || {};
-                        localStorage.setItem('my_assets_v2', JSON.stringify(watchlist));
-                        localStorage.setItem('my_balances_v2', JSON.stringify(balances));
-                        localStorage.setItem('my_coin_sources', JSON.stringify(coinSources));
-                        location.reload();
-                    }
-                }
-            } catch (err) { alert("File rusak!"); }
-        };
-        reader.readAsText(event.target.files[0]);
-    }
-
-    // --- LOGIKA UTAMA ---
-    async function fetchAll() {
-        try {
-            const rKurs = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=usd-coin&vs_currencies=idr');
-            const dKurs = await rKurs.json();
-            if(dKurs?.['usd-coin']?.idr) {
-                usdToIdr = dKurs['usd-coin'].idr;
-                localStorage.setItem('last_usd_idr', usdToIdr);
-            }
-        } catch(e) {}
-        document.getElementById('kurs-live').innerText = `USD/IDR: ${new Intl.NumberFormat('id-ID').format(usdToIdr)}`;
-
-        for (let s of watchlist) {
-            const sym = s.toUpperCase();
-            if (stablecoins.includes(sym)) { prices[sym] = 1.0; changes[sym] = "0.00"; continue; }
-            try {
-                const r = await fetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${sym}USDT`);
-                const d = await r.json();
-                if (d.result?.list?.[0]) {
-                    const data = d.result.list[0];
-                    prices[sym] = parseFloat(data.lastPrice) || 0;
-                    let prev = parseFloat(data.prevPrice24h);
-                    changes[sym] = (prev > 0) ? (((prices[sym] - prev) / prev) * 100).toFixed(2) : "0.00";
-                }
-            } catch(e) {}
-        }
-        localStorage.setItem('last_prices', JSON.stringify(prices));
-        localStorage.setItem('last_changes', JSON.stringify(changes));
-        renderList();
-    }
-
-    function renderList() {
-        const listContainer = document.getElementById('main-list');
-        const filterVal = document.getElementById('filter-input').value.toUpperCase();
-        if (!listContainer) return;
-        
-        const sortType = document.getElementById('sort-order').value;
-        let sortedList = watchlist.filter(sym => sym.toUpperCase().includes(filterVal));
-
-        if (sortType === 'name') sortedList.sort((a, b) => a.localeCompare(b));
-        if (sortType === 'value') {
-            sortedList.sort((a, b) => (getTotal(b) * (prices[b.toUpperCase()] || 0)) - (getTotal(a) * (prices[a.toUpperCase()] || 0)));
-        }
-
-        listContainer.innerHTML = "";
-        let totalAllUsd = 0;
-
-        sortedList.forEach(sym => {
-            const symU = sym.toUpperCase();
-            const total = getTotal(sym);
-            const price = prices[symU] || 0;
-            const change = changes[symU] || "0.00";
-            const valUsd = total * price;
-            totalAllUsd += valUsd;
-
-            listContainer.innerHTML += `
-                <div class="coin-row">
-                    <div class="coin-card" onclick="toggleDetail('${sym}')">
-                        <div class="logo-wrapper"><img src="${getLogo(sym)}" onerror="this.src='https://cdn-icons-png.flaticon.com/512/1041/1041888.png'"></div>
-                        <div class="info-group">
-                            <div class="ticker-row">
-                                <span class="symbol">${symU}</span>
-                                <span class="change-pct ${parseFloat(change) >= 0 ? 'up' : 'down'}">${parseFloat(change) >= 0 ? '+' : ''}${change}%</span>
-                            </div>
-                            <span class="price-live">$${price ? price.toLocaleString() : '---'}</span>
-                        </div>
-                        <div class="total-display">
-                            <span class="amount-main">${formatNumber(total)}</span>
-                            <span class="value-idr">Rp ${Math.round(valUsd * usdToIdr).toLocaleString('id-ID')}</span>
-                        </div>
-                    </div>
-                    ${(symU !== 'BTC' && symU !== 'ETH') ? `<div class="delete-btn" onclick="removeCoin('${sym}')">×</div>` : ''}
-                    <div id="detail-${sym}" class="details" style="display: ${expandedCoin === sym ? 'block' : 'none'}">
-                        ${(coinSources[sym] || []).map(src => `
-                            <div class="source-row">
-                                <span style="font-size: 11px; color: var(--subtext)">${src}</span>
-                                <div style="display:flex; align-items:center;">
-                                    <input type="number" class="source-input" value="${balances[sym]?.[src] || ''}" oninput="updateBalance('${sym}', '${src}', this.value)" placeholder="0">
-                                    <span class="del-src" onclick="removeSource('${sym}', '${src}')">×</span>
-                                </div>
-                            </div>
-                        `).join('')}
-                        <div class="add-source-box">
-                            <input type="text" id="new-src-${sym}" placeholder="Tambah source...">
-                            <button class="btn-add-src" onclick="addNewSource('${sym}')">Ok</button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        });
-        
-        let totalReal = 0;
-        watchlist.forEach(s => { totalReal += (getTotal(s) * (prices[s.toUpperCase()] || 0)); });
-        updateGrandUI(totalReal);
-    }
-
-    function getTotal(sym) {
-        let sum = 0;
-        if (balances[sym] && coinSources[sym]) {
-            coinSources[sym].forEach(src => { sum += (parseFloat(balances[sym][src]) || 0); });
-        }
-        return sum;
-    }
-
-    function toggleDetail(sym) { expandedCoin = (expandedCoin === sym) ? null : sym; renderList(); }
-
-    function updateBalance(sym, src, val) {
-        if (!balances[sym]) balances[sym] = {};
-        balances[sym][src] = val;
-        localStorage.setItem('my_balances_v2', JSON.stringify(balances));
-        let totalNow = 0;
-        watchlist.forEach(s => { totalNow += (getTotal(s) * (prices[s.toUpperCase()] || 0)); });
-        updateGrandUI(totalNow);
-    }
-
-    function updateGrandUI(usd) {
-        document.getElementById('total-all-idr').innerText = `Rp ${Math.round(usd * usdToIdr).toLocaleString('id-ID')}`;
-        document.getElementById('total-all-usd').innerText = `$${usd.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-    }
-
-    function addNewSource(sym) {
-        const inp = document.getElementById(`new-src-${sym}`);
-        if (inp.value.trim()) {
-            if (!coinSources[sym]) coinSources[sym] = [];
-            coinSources[sym].push(inp.value.trim());
-            localStorage.setItem('my_coin_sources', JSON.stringify(coinSources));
-            renderList();
-        }
-    }
-
-    function removeSource(sym, src) {
-        if(confirm(`Hapus source ${src}?`)) {
-            coinSources[sym] = coinSources[sym].filter(s => s !== src);
-            localStorage.setItem('my_coin_sources', JSON.stringify(coinSources));
-            renderList();
-        }
-    }
-
-    function addCoin() {
-        const inp = document.getElementById('search-input');
-        let s = inp.value.toUpperCase().trim();
-        if (s && !watchlist.includes(s)) {
-            watchlist.push(s);
-            localStorage.setItem('my_assets_v2', JSON.stringify(watchlist));
-            inp.value = ""; fetchAll();
-        }
-    }
-
-    function removeCoin(sym) {
-        if(confirm(`Hapus ${sym}?`)) {
-            watchlist = watchlist.filter(i => i !== sym);
-            localStorage.setItem('my_assets_v2', JSON.stringify(watchlist));
-            renderList();
-        }
-    }
-
-    function formatNumber(n) { return (!n || n === 0) ? "0" : n.toLocaleString(undefined, { maximumFractionDigits: 8 }); }
-    function getLogo(s) {
-        const sym = s.toLowerCase();
-        if (sym === 'btc') return 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png';
-        if (sym === 'eth') return 'https://assets.coingecko.com/coins/images/279/large/ethereum.png';
-        if (['usdt', 'usd'].includes(sym)) return 'https://assets.coingecko.com/coins/images/325/large/Tether.png';
-        return `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${sym}.png`;
-    }
-</script>
-</body>
-</html>
+    function exportToHTML() {
+        let rows = "";
+        let totalVal = 0;
+        watchlist.forEach(sym => {
+            const price = prices[sym.toUpperCase()] || 0;
+            (coinSources[sym] || []).forEach(src => {
+                const saldo = parseFloat(balances[sym]?.[src]) || 0;
+                if(saldo > 0) {
+                    const tUsd = saldo * price; totalVal += tUsd;
+                    rows += `<tr><td>${sym.toUpperCase()}</td><td>${src}</td><td>${saldo}</td><td>$${price.toLocaleString()}</td><td>$
