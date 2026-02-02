@@ -26,7 +26,7 @@
 
         .coin-row { position: relative; margin-bottom: 10px; }
         .coin-card { background: var(--card); border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 10px; border: 1px solid #334155; cursor: pointer; position: relative; z-index: 2; }
-        .logo-wrapper { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; border: 1px solid #475569; flex-shrink: 0; }
+        .logo-wrapper { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; border: 1px solid #475569; flex-shrink: 0; background: #000; }
         .logo-wrapper img { width: 100%; height: 100%; object-fit: cover; }
 
         .info-group { flex: 1; min-width: 0; }
@@ -105,19 +105,32 @@
     let usdToIdr = 16000;
     let prices = {};
     let changes = {};
+    let coinMapCG = {}; // Untuk menyimpan mapping ID CoinGecko
     const defaultSources = ["Binance", "Bybit", "OKX", "Bitget", "Gate"];
     let watchlist = JSON.parse(localStorage.getItem('my_assets_v2') || '["BTC", "ETH"]');
     let balances = JSON.parse(localStorage.getItem('my_balances_v2') || '{}');
     let coinSources = JSON.parse(localStorage.getItem('my_coin_sources') || '{}');
     let expandedCoin = null;
 
-    window.onload = () => {
+    window.onload = async () => {
         watchlist.forEach(s => { if(!coinSources[s]) coinSources[s] = [...defaultSources]; });
-        renderList(); fetchAll();
+        renderList();
+        await fetchCoinMap(); // Ambil list koin dari CG buat fallback
+        fetchAll();
         setInterval(fetchAll, 60000);
     };
 
+    // Fungsi ambil list koin CoinGecko buat nyari ID berdasarkan simbol
+    async function fetchCoinMap() {
+        try {
+            const r = await fetch('https://api.coingecko.com/api/v3/coins/list');
+            const data = await r.json();
+            data.forEach(c => { coinMapCG[c.symbol.toUpperCase()] = c.id; });
+        } catch(e) { console.log("Gagal ambil map CG"); }
+    }
+
     async function fetchAll() {
+        // 1. Ambil Kurs USD/IDR
         try {
             const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=usd-coin&vs_currencies=idr');
             const d = await r.json();
@@ -127,18 +140,38 @@
             }
         } catch(e) {}
         
+        // 2. Ambil Harga Koin
         for (let s of watchlist) {
             try {
                 if(['USDT','USDC','USD'].includes(s)) { prices[s] = 1; changes[s] = "0.00"; continue; }
-                const r = await fetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${s}USDT`);
-                const d = await r.json();
-                if(d.result?.list?.[0]) {
-                    const data = d.result.list[0];
+                
+                // --- Taktik Bybit First ---
+                const rb = await fetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${s}USDT`);
+                const db = await rb.json();
+                
+                if(db.result?.list?.[0] && db.result.list[0].lastPrice !== "") {
+                    const data = db.result.list[0];
                     prices[s] = parseFloat(data.lastPrice);
                     let prev = parseFloat(data.prevPrice24h);
                     changes[s] = (prev > 0) ? (((prices[s] - prev) / prev) * 100).toFixed(2) : "0.00";
+                } else {
+                    // --- Fallback ke CoinGecko ---
+                    const cgId = coinMapCG[s];
+                    if(cgId) {
+                        const rcg = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${cgId}&vs_currencies=usd&include_24hr_change=true`);
+                        const dcg = await rcg.json();
+                        if(dcg[cgId]) {
+                            prices[s] = dcg[cgId].usd;
+                            changes[s] = dcg[cgId].usd_24h_change ? dcg[cgId].usd_24h_change.toFixed(2) : "0.00";
+                        }
+                    } else {
+                        if(!prices[s]) prices[s] = 0;
+                        if(!changes[s]) changes[s] = "0.00";
+                    }
                 }
-            } catch(e) {}
+            } catch(e) {
+                console.log(`Error fetch ${s}`);
+            }
         }
         
         const now = new Date();
@@ -173,10 +206,10 @@
                         <div class="info-group">
                             <span class="symbol">${sym}</span>
                             <span class="change-pct ${parseFloat(change) >= 0 ? 'up' : 'down'}">${parseFloat(change) >= 0 ? '+' : ''}${change}%</span><br>
-                            <span style="font-size:11px; color:var(--subtext)">$${price.toLocaleString()}</span>
+                            <span style="font-size:11px; color:var(--subtext)">$${price.toLocaleString(undefined, {minimumFractionDigits: price < 1 ? 4 : 2})}</span>
                         </div>
                         <div style="text-align:right; margin-right: 10px;">
-                            <span id="coin-total-${sym}" style="font-weight:bold; font-size:15px;">${coinTotal.toLocaleString()}</span><br>
+                            <span style="font-weight:bold; font-size:15px;">${coinTotal.toLocaleString()}</span><br>
                             <span style="font-size:10px; color:var(--subtext)">Rp ${(valUsd*usdToIdr).toLocaleString('id-ID')}</span>
                         </div>
                     </div>
@@ -193,7 +226,7 @@
                             </div>
                         `).join('')}
                         <div class="add-source-box">
-                            <input type="text" id="new-src-${sym}" placeholder="Tambah source (Wallet/Lainnya)..." onkeypress="if(event.key==='Enter') addNewSource('${sym}')">
+                            <input type="text" id="new-src-${sym}" placeholder="Tambah source..." onkeypress="if(event.key==='Enter') addNewSource('${sym}')">
                             <button style="background:var(--accent); border:none; border-radius:4px; font-size:10px; font-weight:bold; padding:4px 10px;" onclick="addNewSource('${sym}')">OK</button>
                         </div>
                     </div>
@@ -204,15 +237,8 @@
     }
 
     function getCoinTotal(sym) { let t = 0; (coinSources[sym] || []).forEach(src => t += parseFloat(balances[sym]?.[src] || 0)); return t; }
-    
     function toggleDetail(s) { expandedCoin = (expandedCoin === s) ? null : s; renderList(); }
-    
-    function updateBal(s, src, v) { 
-        if(!balances[s]) balances[s]={}; 
-        balances[s][src] = v; 
-        saveAll(); 
-        updateSummary(); 
-    }
+    function updateBal(s, src, v) { if(!balances[s]) balances[s]={}; balances[s][src] = v; saveAll(); updateSummary(); }
     
     function addNewSource(sym) {
         const input = document.getElementById(`new-src-${sym}`);
@@ -231,10 +257,7 @@
 
     function updateSummary() {
         let total = 0; 
-        watchlist.forEach(s => {
-            const coinVal = getCoinTotal(s) * (prices[s] || 0);
-            total += coinVal;
-        });
+        watchlist.forEach(s => total += (getCoinTotal(s) * (prices[s] || 0)));
         document.getElementById('total-all-idr').innerText = `Rp ${Math.round(total*usdToIdr).toLocaleString('id-ID')}`;
         document.getElementById('total-all-usd').innerText = `$${total.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
     }
@@ -246,7 +269,26 @@
     }
 
     function removeCoin(s) { if(confirm(`Hapus ${s}?`)) { watchlist = watchlist.filter(i => i !== s); delete balances[s]; delete coinSources[s]; saveAll(); renderList(); } }
-    
+    function saveAll() { localStorage.setItem('my_assets_v2', JSON.stringify(watchlist)); localStorage.setItem('my_balances_v2', JSON.stringify(balances)); localStorage.setItem('my_coin_sources', JSON.stringify(coinSources)); }
+    function resetApp() { if(confirm("Hapus total semua data?")) { localStorage.clear(); location.reload(); } }
+    function exportData() {
+        const data = { assets: watchlist, balances: balances, sources: coinSources };
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], {type:'application/json'}));
+        a.download = `BACKUP_PORTO_${new Date().toISOString().split('T')[0]}.json`; a.click();
+    }
+    function importData(e) {
+        const reader = new FileReader();
+        reader.onload = (f) => { try { const d = JSON.parse(f.target.result); watchlist = d.assets; balances = d.balances; coinSources = d.sources; saveAll(); location.reload(); } catch(err){alert("File rusak!")} };
+        reader.readAsText(e.target.files[0]);
+    }
+    function exportToExcel() {
+        let csv = "sep=,\nKoin,Source,Saldo,Harga USD,Total IDR\n";
+        watchlist.forEach(s => { (coinSources[s]||[]).forEach(src => {
+            const bal = balances[s]?.[src] || 0;
+            csv += `${s},${src},${bal},${prices[s]||0},${Math.round(bal*(prices[s]||0)*usdToIdr)}\n`;
+        }); });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); a.download = "Laporan_Porto.csv"; a.click();
+    }
     function editSource(sym, old) {
         const n = prompt(`Ubah "${old}" jadi:`, old);
         if(n && n !== old) {
@@ -256,37 +298,7 @@
             saveAll(); renderList();
         }
     }
-
     function removeSource(sym, src) { if(confirm(`Hapus source ${src}?`)) { coinSources[sym] = coinSources[sym].filter(s => s !== src); if(balances[sym]) delete balances[sym][src]; saveAll(); renderList(); } }
-    
-    function saveAll() { 
-        localStorage.setItem('my_assets_v2', JSON.stringify(watchlist)); 
-        localStorage.setItem('my_balances_v2', JSON.stringify(balances)); 
-        localStorage.setItem('my_coin_sources', JSON.stringify(coinSources)); 
-    }
-
-    function resetApp() { if(confirm("Hapus total semua data?")) { localStorage.clear(); location.reload(); } }
-
-    function exportData() {
-        const data = { assets: watchlist, balances: balances, sources: coinSources };
-        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], {type:'application/json'}));
-        a.download = `BACKUP_PORTO_${new Date().toISOString().split('T')[0]}.json`; a.click();
-    }
-
-    function importData(e) {
-        const reader = new FileReader();
-        reader.onload = (f) => { try { const d = JSON.parse(f.target.result); watchlist = d.assets; balances = d.balances; coinSources = d.sources; saveAll(); location.reload(); } catch(err){alert("File rusak!")} };
-        reader.readAsText(e.target.files[0]);
-    }
-
-    function exportToExcel() {
-        let csv = "sep=,\nKoin,Source,Saldo,Harga USD,Total IDR\n";
-        watchlist.forEach(s => { (coinSources[s]||[]).forEach(src => {
-            const bal = balances[s]?.[src] || 0;
-            csv += `${s},${src},${bal},${prices[s]||0},${Math.round(bal*(prices[s]||0)*usdToIdr)}\n`;
-        }); });
-        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); a.download = "Laporan_Porto.csv"; a.click();
-    }
 </script>
 </body>
 </html>
