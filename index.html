@@ -16,7 +16,6 @@
         .summary-card { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 16px; padding: 20px; margin-bottom: 20px; border: 1px solid var(--accent); text-align: center; }
         .summary-idr { font-size: 26px; font-weight: 800; display: block; }
         
-        /* Search & Filter */
         .search-container { margin-bottom: 12px; }
         .filter-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid #334155; border-radius: 12px; padding: 12px 15px; color: white; outline: none; font-size: 14px; }
 
@@ -27,9 +26,9 @@
         .coin-card { background: var(--card); border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 10px; border: 1px solid #334155; cursor: pointer; position: relative; z-index: 2; }
         
         /* Logo Styles */
-        .logo-wrapper { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; border: 1px solid #475569; flex-shrink: 0; background: #000; display: flex; align-items: center; justify-content: center; }
+        .logo-wrapper { width: 34px; height: 34px; border-radius: 50%; overflow: hidden; border: 1px solid #475569; flex-shrink: 0; background: #000; display: flex; align-items: center; justify-content: center; }
         .logo-wrapper img { width: 100%; height: 100%; object-fit: cover; }
-        .logo-initial { width: 100%; height: 100%; background: #000; color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; text-transform: uppercase; }
+        .logo-initial { width: 100%; height: 100%; background: #000; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; text-transform: uppercase; border: 1px solid #475569; border-radius: 50%; }
 
         .info-group { flex: 1; min-width: 0; }
         .symbol { font-size: 15px; font-weight: bold; }
@@ -37,13 +36,12 @@
         .up { color: var(--up); }
         .down { color: var(--down); }
         .delete-coin { position: absolute; right: -25px; top: 50%; transform: translateY(-50%); color: var(--down); font-size: 20px; cursor: pointer; padding: 10px; }
+        
         .details { background: #161e2e; margin: -10px 5px 10px 5px; padding: 20px 15px 15px 15px; border-radius: 0 0 12px 12px; border: 1px solid #334155; display: none; }
         .source-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 8px; }
         .source-label { font-size: 12px; color: var(--subtext); flex: 1; }
         .source-input { width: 100px; background: #000; border: 1px solid #475569; color: #fff; text-align: right; border-radius: 6px; padding: 4px; font-size: 13px; }
         .del-src { color: var(--down); font-size: 18px; cursor: pointer; margin-left: 8px; }
-        .add-source-box { display: flex; gap: 5px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed #334155; }
-        .add-source-box input { flex: 1; background: transparent; border: 1px dashed #475569; color: white; padding: 5px; border-radius: 6px; font-size: 11px; outline: none; }
         
         .add-section { margin-top: 40px; padding-top: 20px; border-top: 1px dashed #334155; }
         .search-box { display: flex; gap: 8px; margin-bottom: 20px; }
@@ -120,7 +118,6 @@
         setInterval(fetchAll, 60000);
     };
 
-    // AMBIL KURS DARI COINGECKO (USDT/IDR)
     async function fetchKurs() {
         try {
             const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=idr');
@@ -140,14 +137,11 @@
         } catch(e) {}
     }
 
-    // LOGIKA TRIPLE FETCH HARGA
     async function fetchAll() {
         for (let s of watchlist) {
             try {
                 if(['USDT','USDC','USD','BUSD'].includes(s)) { prices[s] = 1; changes[s] = "0.00"; continue; }
                 let found = false;
-
-                // 1. Cek Bybit
                 const rb = await fetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${s}USDT`);
                 const db = await rb.json();
                 if(db.result?.list?.[0]?.lastPrice) {
@@ -156,8 +150,6 @@
                     changes[s] = (prev > 0) ? (((prices[s] - prev) / prev) * 100).toFixed(2) : "0.00";
                     found = true;
                 }
-
-                // 2. Cek Binance
                 if(!found) {
                     const rs = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${s}USDT`);
                     const ds = await rs.json();
@@ -167,8 +159,6 @@
                         found = true;
                     }
                 }
-
-                // 3. Cek CoinGecko
                 if(!found && coinMapCG[s]) {
                     const rcg = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinMapCG[s]}&vs_currencies=usd&include_24hr_change=true`);
                     const dcg = await rcg.json();
@@ -183,12 +173,24 @@
         renderList();
     }
 
-    // LOGIKA LOGO INISIAL 2 HURUF (BACKGROUND ITEM)
+    // LOGIKA MULTI-LAYER LOGO + INISIAL (ITEM PERSIS KURS)
     function handleLogoError(img, sym) {
-        const initial = sym.substring(0, 2);
-        const container = img.parentElement;
-        if (container) {
-            container.innerHTML = `<div class="logo-initial">${initial}</div>`;
+        const retry = parseInt(img.getAttribute('data-retry') || "0");
+        const sources = [
+            `https://assets.coincap.io/assets/icons/${sym.toLowerCase()}@2x.png`,
+            `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${sym.toLowerCase()}.png`
+        ];
+
+        if (retry < sources.length) {
+            img.setAttribute('data-retry', retry + 1);
+            img.src = sources[retry];
+        } else {
+            // Kalau semua link di atas gagal (koin micin baru), ganti jadi inisial item
+            const initial = sym.substring(0, 2);
+            const container = img.parentElement;
+            if (container) {
+                container.innerHTML = `<div class="logo-initial">${initial}</div>`;
+            }
         }
     }
 
@@ -240,10 +242,6 @@
                                 <span class="del-src" onclick="removeSource('${sym}', '${src}')">×</span>
                             </div>
                         `).join('')}
-                        <div class="add-source-box">
-                            <input type="text" id="new-src-${sym}" placeholder="Tambah source..." onkeypress="if(event.key==='Enter') addNewSource('${sym}')">
-                            <button style="background:var(--accent); border:none; border-radius:4px; font-size:10px; padding:4px 10px;" onclick="addNewSource('${sym}')">OK</button>
-                        </div>
                     </div>
                 </div>`;
         });
@@ -254,14 +252,6 @@
     function getCoinTotal(sym) { let t = 0; (coinSources[sym] || []).forEach(src => t += parseFloat(balances[sym]?.[src] || 0)); return t; }
     function toggleDetail(s) { expandedCoin = (expandedCoin === s) ? null : s; renderList(); }
     function updateBal(s, src, v) { if(!balances[s]) balances[s]={}; balances[s][src] = v; saveAll(); updateSummary(); }
-    function addNewSource(sym) {
-        const input = document.getElementById(`new-src-${sym}`);
-        if(input.value.trim()) {
-            if(!coinSources[sym]) coinSources[sym] = [];
-            coinSources[sym].push(input.value.trim());
-            saveAll(); renderList();
-        }
-    }
     function updateSummary() {
         let total = 0; watchlist.forEach(s => total += (getCoinTotal(s) * (prices[s] || 0)));
         document.getElementById('total-all-idr').innerText = `Rp ${Math.round(total*usdToIdr).toLocaleString('id-ID')}`;
