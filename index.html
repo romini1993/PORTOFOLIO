@@ -16,19 +16,21 @@
         .summary-card { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 16px; padding: 20px; margin-bottom: 20px; border: 1px solid var(--accent); text-align: center; }
         .summary-idr { font-size: 26px; font-weight: 800; display: block; }
         
-        /* Baris Cari Koin (Full 1 Baris) */
+        /* Search & Filter */
         .search-container { margin-bottom: 12px; }
         .filter-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid #334155; border-radius: 12px; padding: 12px 15px; color: white; outline: none; font-size: 14px; }
 
-        /* Baris Kontrol (Sort Kiri, Currency Kanan) */
         .control-row { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 15px; }
         .control-select { background: var(--card); color: white; border: 1px solid #334155; border-radius: 8px; font-size: 11px; padding: 8px; outline: none; cursor: pointer; flex: 1; }
-        .control-select.right { text-align: right; }
 
         .coin-row { position: relative; margin-bottom: 10px; }
         .coin-card { background: var(--card); border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 10px; border: 1px solid #334155; cursor: pointer; position: relative; z-index: 2; }
+        
+        /* Logo Styles */
         .logo-wrapper { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; border: 1px solid #475569; flex-shrink: 0; background: #000; display: flex; align-items: center; justify-content: center; }
         .logo-wrapper img { width: 100%; height: 100%; object-fit: cover; }
+        .logo-initial { width: 100%; height: 100%; background: #000; color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; text-transform: uppercase; }
+
         .info-group { flex: 1; min-width: 0; }
         .symbol { font-size: 15px; font-weight: bold; }
         .change-pct { font-size: 10px; font-weight: bold; margin-left: 5px; }
@@ -56,7 +58,7 @@
 <div class="container">
     <div class="header">
         <div class="brand">PORTOFOLIO</div>
-        <div id="kurs-live" class="kurs-info">USD/IDR: 16.000</div>
+        <div id="kurs-live" class="kurs-info">USD/IDR: ...</div>
     </div>
     
     <div class="summary-card">
@@ -66,7 +68,7 @@
     </div>
 
     <div class="search-container">
-        <input type="text" id="filter-input" class="filter-input" placeholder="Cari koin..." oninput="renderList()">
+        <input type="text" id="filter-input" class="filter-input" placeholder="Cari koin di list..." oninput="renderList()">
     </div>
 
     <div class="control-row">
@@ -90,12 +92,12 @@
         </div>
         <div class="backup-section">
             <button class="backup-btn" onclick="exportData()">📤 Backup</button>
-            <button class="backup-btn" onclick="exportToExcel()">📊 Excel (No $0)</button>
+            <button class="backup-btn" onclick="exportToExcel()">📊 Excel</button>
             <button class="backup-btn" onclick="document.getElementById('importFile').click()">📥 Import</button>
             <button class="backup-btn" onclick="resetApp()" style="color:var(--down)">⚠️ Reset</button>
             <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
         </div>
-        <div id="last-updated" class="last-updated">Last Updated: ---</div>
+        <div id="last-updated" class="last-updated">Update: ---</div>
     </div>
 </div>
 
@@ -118,12 +120,13 @@
         setInterval(fetchAll, 60000);
     };
 
+    // AMBIL KURS DARI COINGECKO (USDT/IDR)
     async function fetchKurs() {
         try {
-            const r = await fetch('https://open.er-api.com/v6/latest/USD');
+            const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=idr');
             const d = await r.json();
-            if(d.rates?.IDR) {
-                usdToIdr = d.rates.IDR;
+            if(d.tether?.idr) {
+                usdToIdr = d.tether.idr;
                 document.getElementById('kurs-live').innerText = `USD/IDR: ${Math.round(usdToIdr).toLocaleString('id-ID')}`;
             }
         } catch(e) {}
@@ -137,19 +140,24 @@
         } catch(e) {}
     }
 
+    // LOGIKA TRIPLE FETCH HARGA
     async function fetchAll() {
         for (let s of watchlist) {
             try {
-                if(['USDT','USDC','USD'].includes(s)) { prices[s] = 1; changes[s] = "0.00"; continue; }
+                if(['USDT','USDC','USD','BUSD'].includes(s)) { prices[s] = 1; changes[s] = "0.00"; continue; }
                 let found = false;
+
+                // 1. Cek Bybit
                 const rb = await fetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${s}USDT`);
                 const db = await rb.json();
-                if(db.result?.list?.[0] && db.result.list[0].lastPrice !== "") {
+                if(db.result?.list?.[0]?.lastPrice) {
                     prices[s] = parseFloat(db.result.list[0].lastPrice);
                     let prev = parseFloat(db.result.list[0].prevPrice24h);
                     changes[s] = (prev > 0) ? (((prices[s] - prev) / prev) * 100).toFixed(2) : "0.00";
                     found = true;
                 }
+
+                // 2. Cek Binance
                 if(!found) {
                     const rs = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${s}USDT`);
                     const ds = await rs.json();
@@ -159,6 +167,8 @@
                         found = true;
                     }
                 }
+
+                // 3. Cek CoinGecko
                 if(!found && coinMapCG[s]) {
                     const rcg = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinMapCG[s]}&vs_currencies=usd&include_24hr_change=true`);
                     const dcg = await rcg.json();
@@ -173,17 +183,12 @@
         renderList();
     }
 
+    // LOGIKA LOGO INISIAL 2 HURUF (BACKGROUND ITEM)
     function handleLogoError(img, sym) {
-        const retry = parseInt(img.getAttribute('data-retry') || "0");
-        const sources = [
-            `https://coinicons-api.vercel.app/api/icon/${sym.toLowerCase()}`,
-            `https://assets.coincap.io/assets/icons/${sym.toLowerCase()}@2x.png`,
-            `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${sym.toLowerCase()}.png`,
-            `https://cdn-icons-png.flaticon.com/512/1041/1041888.png`
-        ];
-        if (retry < sources.length - 1) {
-            img.setAttribute('data-retry', retry + 1);
-            img.src = sources[retry + 1];
+        const initial = sym.substring(0, 2);
+        const container = img.parentElement;
+        if (container) {
+            container.innerHTML = `<div class="logo-initial">${initial}</div>`;
         }
     }
 
@@ -196,12 +201,8 @@
         let totalAllUsd = 0;
 
         let filtered = watchlist.filter(s => s.includes(query));
-        
-        if (sortType === 'name') {
-            filtered.sort((a, b) => a.localeCompare(b));
-        } else if (sortType === 'value') {
-            filtered.sort((a, b) => (getCoinTotal(b)*(prices[b]||0)) - (getCoinTotal(a)*(prices[a]||0)));
-        }
+        if (sortType === 'name') filtered.sort((a, b) => a.localeCompare(b));
+        else if (sortType === 'value') filtered.sort((a, b) => (getCoinTotal(b)*(prices[b]||0)) - (getCoinTotal(a)*(prices[a]||0)));
 
         filtered.forEach(sym => {
             const price = prices[sym] || 0;
@@ -210,7 +211,6 @@
             const valUsd = coinTotal * price;
             totalAllUsd += valUsd;
 
-            // Logika Tampilan Mata Uang per Koin
             const valueDisplay = (currencyView === 'IDR') 
                 ? `Rp ${(valUsd * usdToIdr).toLocaleString('id-ID', {maximumFractionDigits:0})}`
                 : `$${valUsd.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
@@ -290,7 +290,6 @@
         watchlist.forEach(s => { 
             (coinSources[s]||[]).forEach(src => {
                 const bal = parseFloat(balances[s]?.[src] || 0);
-                // Filter koin yang saldonya > 0 saja
                 if(bal > 0) {
                     const price = prices[s]||0;
                     const valUsd = bal * price;
@@ -299,7 +298,7 @@
                 }
             }); 
         });
-        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); a.download = "Laporan_Aset_Aktif.csv"; a.click();
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); a.download = "Laporan_Aset.csv"; a.click();
     }
     function removeSource(sym, src) { if(confirm(`Hapus source ${src}?`)) { coinSources[sym] = coinSources[sym].filter(s => s !== src); if(balances[sym]) delete balances[sym][src]; saveAll(); renderList(); } }
 </script>
