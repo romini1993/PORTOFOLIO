@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#0f172a">
-    <title>Portofolio Pro</title>
+    <link rel="manifest" href="manifest.json">
+    
+    <title>PORTO</title>
+    
     <style>
         :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --text: #f8fafc; --subtext: #94a3b8; --up: #4ade80; --down: #f87171; }
         * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; -webkit-tap-highlight-color: transparent; }
@@ -25,7 +28,6 @@
         .coin-row { position: relative; margin-bottom: 10px; }
         .coin-card { background: var(--card); border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 10px; border: 1px solid #334155; cursor: pointer; position: relative; z-index: 2; }
         
-        /* Logo Styles */
         .logo-wrapper { width: 34px; height: 34px; border-radius: 50%; overflow: hidden; border: 1px solid #475569; flex-shrink: 0; background: #000; display: flex; align-items: center; justify-content: center; }
         .logo-wrapper img { width: 100%; height: 100%; object-fit: cover; }
         .logo-initial { width: 100%; height: 100%; background: #000; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; text-transform: uppercase; border: 1px solid #475569; border-radius: 50%; }
@@ -38,15 +40,20 @@
         .delete-coin { position: absolute; right: -25px; top: 50%; transform: translateY(-50%); color: var(--down); font-size: 20px; cursor: pointer; padding: 10px; }
         
         .details { background: #161e2e; margin: -10px 5px 10px 5px; padding: 20px 15px 15px 15px; border-radius: 0 0 12px 12px; border: 1px solid #334155; display: none; }
-        .source-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 8px; }
-        .source-label { font-size: 12px; color: var(--subtext); flex: 1; }
-        .source-input { width: 100px; background: #000; border: 1px solid #475569; color: #fff; text-align: right; border-radius: 6px; padding: 4px; font-size: 13px; }
+        .source-row { display: flex; align-items: center; margin-bottom: 10px; gap: 8px; }
+        .source-label { font-size: 12px; color: var(--subtext); width: 80px; flex-shrink: 0; }
+        .source-input { flex: 1; background: #000; border: 1px solid #475569; color: #fff; text-align: left; border-radius: 6px; padding: 6px 10px; font-size: 13px; outline: none; }
         .del-src { color: var(--down); font-size: 18px; cursor: pointer; margin-left: 8px; }
         
+        .new-source-box { display: flex; gap: 5px; margin-top: 15px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); }
+        .new-source-input { flex: 1; background: rgba(0,0,0,0.3); border: 1px dashed #475569; color: #fff; border-radius: 6px; padding: 6px 10px; font-size: 11px; outline: none; }
+        .new-source-btn { background: #334155; color: var(--accent); border: none; border-radius: 6px; padding: 0 12px; font-weight: bold; cursor: pointer; }
+
         .add-section { margin-top: 40px; padding-top: 20px; border-top: 1px dashed #334155; }
         .search-box { display: flex; gap: 8px; margin-bottom: 20px; }
         .search-box input { flex: 1; background: var(--card); border: 1px solid #334155; color: white; padding: 12px; border-radius: 10px; outline: none; }
-        .add-btn { background: var(--accent); border: none; padding: 0 20px; border-radius: 10px; font-weight: bold; cursor: pointer; }
+        .add-btn { background: var(--accent); border: none; padding: 0 15px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 13px; color: #0f172a; }
+        
         .backup-section { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
         .backup-btn { background: transparent; border: 1px solid #334155; color: var(--subtext); padding: 10px; border-radius: 8px; font-size: 11px; cursor: pointer; text-align: center; }
         .last-updated { text-align: center; font-size: 10px; color: var(--subtext); margin-top: 20px; }
@@ -55,7 +62,7 @@
 <body>
 <div class="container">
     <div class="header">
-        <div class="brand">PORTOFOLIO</div>
+        <div class="brand">PORTO</div>
         <div id="kurs-live" class="kurs-info">USD/IDR: ...</div>
     </div>
     
@@ -86,7 +93,7 @@
     <div class="add-section">
         <div class="search-box">
             <input type="text" id="search-input" placeholder="Tambah koin (misal: SUI)">
-            <button class="add-btn" onclick="addCoin()">+</button>
+            <button class="add-btn" onclick="addCoin()">Tambah</button>
         </div>
         <div class="backup-section">
             <button class="backup-btn" onclick="exportData()">📤 Backup</button>
@@ -173,19 +180,16 @@
         renderList();
     }
 
-    // LOGIKA MULTI-LAYER LOGO + INISIAL (ITEM PERSIS KURS)
     function handleLogoError(img, sym) {
         const retry = parseInt(img.getAttribute('data-retry') || "0");
         const sources = [
             `https://assets.coincap.io/assets/icons/${sym.toLowerCase()}@2x.png`,
             `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color/${sym.toLowerCase()}.png`
         ];
-
         if (retry < sources.length) {
             img.setAttribute('data-retry', retry + 1);
             img.src = sources[retry];
         } else {
-            // Kalau semua link di atas gagal (koin micin baru), ganti jadi inisial item
             const initial = sym.substring(0, 2);
             const container = img.parentElement;
             if (container) {
@@ -242,6 +246,11 @@
                                 <span class="del-src" onclick="removeSource('${sym}', '${src}')">×</span>
                             </div>
                         `).join('')}
+                        
+                        <div class="new-source-box">
+                            <input type="text" id="new-src-input-${sym}" class="new-source-input" placeholder="Nama source baru..." onkeypress="if(event.key==='Enter') addCustomSource('${sym}')">
+                            <button class="new-source-btn" onclick="addCustomSource('${sym}')">+</button>
+                        </div>
                     </div>
                 </div>`;
         });
@@ -252,6 +261,28 @@
     function getCoinTotal(sym) { let t = 0; (coinSources[sym] || []).forEach(src => t += parseFloat(balances[sym]?.[src] || 0)); return t; }
     function toggleDetail(s) { expandedCoin = (expandedCoin === s) ? null : s; renderList(); }
     function updateBal(s, src, v) { if(!balances[s]) balances[s]={}; balances[s][src] = v; saveAll(); updateSummary(); }
+    
+    function addCustomSource(sym) {
+        const input = document.getElementById(`new-src-input-${sym}`);
+        const name = input.value.trim();
+        if(name) {
+            if(!coinSources[sym]) coinSources[sym] = [];
+            if(!coinSources[sym].includes(name)) {
+                coinSources[sym].push(name);
+                saveAll();
+                renderList();
+                setTimeout(() => {
+                   const details = document.getElementById(`det-${sym}`);
+                   const lastInput = details.querySelectorAll('.source-input');
+                   if(lastInput.length > 0) lastInput[lastInput.length - 1].focus();
+                }, 50);
+            } else {
+                alert("Source ini udah ada, Bro!");
+                input.value = "";
+            }
+        }
+    }
+
     function updateSummary() {
         let total = 0; watchlist.forEach(s => total += (getCoinTotal(s) * (prices[s] || 0)));
         document.getElementById('total-all-idr').innerText = `Rp ${Math.round(total*usdToIdr).toLocaleString('id-ID')}`;
