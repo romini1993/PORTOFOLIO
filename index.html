@@ -117,10 +117,14 @@
     let coinSources = JSON.parse(localStorage.getItem('my_coin_sources') || '{}');
     let expandedCoin = null;
 
-    window.onload = async () => {
+    window.onload = () => {
         watchlist.forEach(s => { if(!coinSources[s]) coinSources[s] = [...defaultSources]; });
-        await fetchKurs(); 
-        await fetchCoinMap(); 
+        // Render langsung data saldo yang ada di localstorage biar gak nunggu internet
+        renderList(); 
+        
+        // Panggil fetcher tanpa 'await' biar background process
+        fetchKurs(); 
+        fetchCoinMap(); 
         fetchAll();
         setInterval(fetchAll, 60000);
     };
@@ -132,6 +136,7 @@
             if(d.tether?.idr) {
                 usdToIdr = d.tether.idr;
                 document.getElementById('kurs-live').innerText = `USD/IDR: ${Math.round(usdToIdr).toLocaleString('id-ID')}`;
+                renderList();
             }
         } catch(e) {}
     }
@@ -145,9 +150,10 @@
     }
 
     async function fetchAll() {
-        for (let s of watchlist) {
+        // Menggunakan Promise.all agar fetch harga berjalan paralel (barengan)
+        const fetchPromises = watchlist.map(async (s) => {
             try {
-                if(['USDT','USDC','USD','BUSD'].includes(s)) { prices[s] = 1; changes[s] = "0.00"; continue; }
+                if(['USDT','USDC','USD','BUSD'].includes(s)) { prices[s] = 1; changes[s] = "0.00"; return; }
                 let found = false;
                 const rb = await fetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${s}USDT`);
                 const db = await rb.json();
@@ -175,7 +181,9 @@
                     }
                 }
             } catch(e) {}
-        }
+        });
+
+        await Promise.all(fetchPromises);
         document.getElementById('last-updated').innerText = `Update: ${new Date().toLocaleTimeString('id-ID')}`;
         renderList();
     }
