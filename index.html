@@ -324,7 +324,18 @@
     function addCoin() {
         const input = document.getElementById('search-input');
         const s = input.value.toUpperCase().trim();
-        if(s && !watchlist.includes(s)) { watchlist.push(s); coinSources[s] = [...defaultSources]; saveAll(); input.value = ""; fetchAll(); }
+        if(s) {
+            if(watchlist.includes(s)) {
+                alert(`Koin ${s} udah ada di list, Bro!`);
+                input.value = "";
+                return;
+            }
+            watchlist.push(s); 
+            coinSources[s] = [...defaultSources]; 
+            saveAll(); 
+            input.value = ""; 
+            fetchAll(); 
+        }
     }
     function removeCoin(s) { if(confirm(`Hapus ${s}?`)) { watchlist = watchlist.filter(i => i !== s); delete balances[s]; delete coinSources[s]; saveAll(); renderList(); } }
     function saveAll() { localStorage.setItem('my_assets_v2', JSON.stringify(watchlist)); localStorage.setItem('my_balances_v2', JSON.stringify(balances)); localStorage.setItem('my_coin_sources', JSON.stringify(coinSources)); }
