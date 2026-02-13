@@ -55,11 +55,13 @@
         .search-box input { flex: 1; background: var(--card); border: 1px solid #334155; color: white; padding: 12px; border-radius: 10px; outline: none; }
         .add-btn { background: var(--accent); border: none; padding: 0 15px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 13px; color: #0f172a; }
         
-        .backup-section { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
-        .backup-btn { background: transparent; border: 1px solid #334155; color: var(--subtext); padding: 10px; border-radius: 8px; font-size: 11px; cursor: pointer; text-align: center; }
+        /* Layout Tombol 2-2-1 */
+        .backup-section { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+        .backup-btn { flex: 1 1 calc(50% - 4px); background: transparent; border: 1px solid #334155; color: var(--subtext); padding: 10px; border-radius: 8px; font-size: 11px; cursor: pointer; text-align: center; }
+        .import-btn-full { flex: 1 1 100% !important; margin-top: 4px; border: 1px solid var(--accent) !important; color: var(--accent) !important; }
+        
         .last-updated { text-align: center; font-size: 10px; color: var(--subtext); margin-top: 20px; }
 
-        /* Toast Kecil */
         #toast-msg { visibility: hidden; min-width: 200px; background-color: #f87171; color: #fff; text-align: center; border-radius: 8px; padding: 10px; position: fixed; z-index: 1000; bottom: 30px; left: 50%; transform: translateX(-50%); font-size: 12px; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
         #toast-msg.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
         @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
@@ -104,10 +106,12 @@
         </div>
         <div class="backup-section">
             <button class="backup-btn" onclick="exportData()">📤 Backup</button>
+            <button class="backup-btn" onclick="openFilePicker('restore')">🔄 Restore</button>
             <button class="backup-btn" onclick="exportToExcel()">📊 Excel</button>
-            <button class="backup-btn" onclick="document.getElementById('importFile').click()">📥 Import</button>
             <button class="backup-btn" onclick="resetApp()" style="color:var(--down)">⚠️ Reset</button>
-            <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
+            <button class="backup-btn import-btn-full" onclick="openFilePicker('import')">📥 Import</button>
+            
+            <input type="file" id="importFile" style="display:none" accept=".json" onchange="handleFileSelect(event)">
         </div>
         <div id="last-updated" class="last-updated">Update: ---</div>
     </div>
@@ -125,6 +129,7 @@
     let balances = JSON.parse(localStorage.getItem('my_balances_v2') || '{}');
     let coinSources = JSON.parse(localStorage.getItem('my_coin_sources') || '{}');
     let expandedCoin = null;
+    let currentMode = 'restore';
 
     window.onload = () => {
         const lastSort = localStorage.getItem('last_sort') || 'manual';
@@ -356,11 +361,57 @@
         }
     }
 
-    function importData(e) {
-        const reader = new FileReader();
-        reader.onload = (f) => { const d = JSON.parse(f.target.result); watchlist = d.assets; balances = d.balances; coinSources = d.sources; saveAll(); location.reload(); };
-        reader.readAsText(e.target.files[0]);
+    function openFilePicker(mode) {
+        currentMode = mode;
+        document.getElementById('importFile').click();
     }
+
+    function handleFileSelect(e) {
+        const file = e.target.files[0];
+        if(!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (f) => {
+            try {
+                const d = JSON.parse(f.target.result);
+                if (currentMode === 'restore') {
+                    if(confirm("Restore akan menghapus data saat ini. Lanjutkan?")) {
+                        watchlist = d.assets || [];
+                        balances = d.balances || {};
+                        coinSources = d.sources || {};
+                        saveAll();
+                        location.reload();
+                    }
+                } else if (currentMode === 'import') {
+                    if (d.assets) {
+                        d.assets.forEach(s => { if(!watchlist.includes(s)) watchlist.push(s); });
+                    }
+                    if (d.sources) {
+                        for (let s in d.sources) {
+                            if (!coinSources[s]) coinSources[s] = d.sources[s];
+                            else d.sources[s].forEach(src => { if(!coinSources[s].includes(src)) coinSources[s].push(src); });
+                        }
+                    }
+                    if (d.balances) {
+                        for (let s in d.balances) {
+                            if (!balances[s]) balances[s] = {};
+                            for (let src in d.balances[s]) {
+                                let bVal = parseFloat(d.balances[s][src] || 0);
+                                let cVal = parseFloat(balances[s][src] || 0);
+                                balances[s][src] = cVal + bVal;
+                            }
+                        }
+                    }
+                    saveAll();
+                    showToast("Data berhasil ditambahkan!");
+                    setTimeout(() => location.reload(), 1000);
+                }
+            } catch (err) { showToast("File gak valid, Bro!"); }
+            e.target.value = '';
+        };
+        reader.readAsText(file);
+    }
+
     function exportToExcel() {
         let csv = "sep=,\nKoin,Source,Saldo,Harga USD,Total USD,Total IDR\n";
         watchlist.forEach(s => { 
