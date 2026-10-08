@@ -1808,6 +1808,8 @@ function logoutSync() {
 function closeModal() {
   document.getElementById('modal-overlay').classList.remove('active');
   document.getElementById('modal-input').style.display = 'none';
+  const pi = document.getElementById('modal-input-pass');
+  if (pi) pi.style.display = 'none';
 }
 
 function confirmModal(msg, type, onOk, onEdit = null) {
@@ -2543,7 +2545,6 @@ function handleGlobalAdd() {
     if (!allExchanges.includes(v)) { allExchanges.push(v); saveAll(); renderList(); }
     else showToast(`Exchange ${v} sudah ada!`);
   };
-  inp.onkeypress = e => { if (e.key === 'Enter') document.getElementById('btn-addex-ok')?.click(); };
   overlay.classList.add('active');
   setTimeout(() => inp.focus(), 200);
 }
@@ -2663,6 +2664,41 @@ function startHold(event, id, type) {
 }
 function moveHold(event) { if(!holdTimer) return; const touch = event.touches ? event.touches[0] : event; if(Math.abs(touch.clientX-startX)>15 || Math.abs(touch.clientY-startY)>15) clearHold(); }
 function clearHold() { clearTimeout(holdTimer); holdTimer = null; }
+
+// ══════════════════════════════
+//  KEYBOARD: ENTER = eksekusi, ESC = batal (semua popup)
+// ══════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.isComposing) return;
+  const overlay = document.getElementById('modal-overlay');
+  const modalOpen = overlay && overlay.classList.contains('active');
+
+  if (e.key === 'Escape') {
+    if (modalOpen) { e.preventDefault(); closeModal(); }
+    return;
+  }
+  if (e.key !== 'Enter' || !modalOpen) return;
+
+  // Kalau tombol lagi fokus, biarin browser yang klik (hindari eksekusi dobel)
+  if (e.target && e.target.tagName === 'BUTTON') return;
+
+  // Login: Enter di username -> pindah ke password dulu
+  const pass = document.getElementById('modal-input-pass');
+  const inp = document.getElementById('modal-input');
+  if (e.target === inp && pass && pass.style.display === 'block' && !pass.value) {
+    e.preventDefault();
+    pass.focus();
+    return;
+  }
+
+  // Tombol aksi utama: HAPUS / OKE / SIMPAN / TAMBAH / EXPORT / MASUK / AMBIL
+  const btn = overlay.querySelector('#modal-btns .mb-delete, #modal-btns .mb-ok');
+  if (btn) {
+    e.preventDefault();
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    btn.click();
+  }
+}, true);
 </script>
 </body>
 </html>
