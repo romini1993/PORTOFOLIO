@@ -238,8 +238,18 @@
       overflow: hidden;
       border: 1px solid var(--border);
       background: var(--card);
-      transition: border-color 0.2s;
-      animation: fadeUp 0.25s ease both;
+      /* muncul saat masuk layar (scroll-reveal), tanpa antre dari atas */
+      opacity: 0;
+      transform: translateY(14px) scale(0.985);
+      transition:
+        opacity 0.35s ease var(--d, 0ms),
+        transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) var(--d, 0ms),
+        border-color 0.2s;
+    }
+    .item-wrap.in { opacity: 1; transform: none; }
+    .item-wrap.instant { opacity: 1; transform: none; transition: border-color 0.2s; }
+    @media (prefers-reduced-motion: reduce) {
+      .item-wrap { opacity: 1; transform: none; transition: border-color 0.2s; }
     }
     .item-wrap:hover { border-color: var(--bh); }
     .item-wrap.expanded { border-color: var(--accent-border); }
@@ -2306,6 +2316,42 @@ function toggleDetail(id) {
 // ══════════════════════════════
 //  RENDER LIST
 // ══════════════════════════════
+// ══════════════════════════════
+//  SCROLL-REVEAL: item muncul bareng begitu masuk layar
+// ══════════════════════════════
+let revealIO = null;
+const revealedIds = new Set();
+
+function revealItems(list) {
+  if (revealIO) revealIO.disconnect();
+  const els = list.querySelectorAll('.item-wrap');
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Browser lama / reduced-motion: tampilkan semua langsung
+  if (!('IntersectionObserver' in window) || reduce) {
+    els.forEach(el => el.classList.add('instant'));
+    return;
+  }
+
+  revealIO = new IntersectionObserver(entries => {
+    // Semua item yang terlihat di batch ini muncul hampir bersamaan
+    // (stagger tipis, maks ~240ms), nggak peduli posisinya di list.
+    const vis = entries.filter(e => e.isIntersecting)
+      .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+    vis.forEach((e, i) => {
+      e.target.style.setProperty('--d', Math.min(i, 6) * 40 + 'ms');
+      e.target.classList.add('in');
+      revealedIds.add(e.target.id);
+      revealIO.unobserve(e.target);
+    });
+  }, { threshold: 0.05, rootMargin: '60px 0px 60px 0px' });
+
+  els.forEach(el => {
+    if (revealedIds.has(el.id)) el.classList.add('instant'); // sudah pernah muncul: jangan animasi ulang saat re-render/filter
+    else revealIO.observe(el);
+  });
+}
+
 function renderList() {
   const list = document.getElementById('main-list');
   const query = getFilterQuery();
@@ -2376,7 +2422,7 @@ function renderList() {
       }).join('');
 
       html += `
-        <div class="item-wrap${isOpen?' expanded':''}" id="wrap-${ex.name}" style="animation-delay:${exIdx * 30}ms">
+        <div class="item-wrap${isOpen?' expanded':''}" id="wrap-${ex.name}">
           <div class="item-card"
             onclick="toggleDetail('${ex.name}')"
             onmousedown="startHold(event,'${ex.name}','exchange')"
@@ -2453,7 +2499,7 @@ function renderList() {
       }).join('');
 
       html += `
-        <div class="item-wrap${isOpen?' expanded':''}" id="wrap-${s}" style="animation-delay:${sIdx * 30}ms">
+        <div class="item-wrap${isOpen?' expanded':''}" id="wrap-${s}">
           <div class="item-card"
             onclick="toggleDetail('${s}')"
             onmousedown="startHold(event,'${s}','coin')"
@@ -2485,6 +2531,7 @@ function renderList() {
   }
 
   list.innerHTML = html;
+  revealItems(list);
   updatePricesOnly();
 
   // Disable scroll-wheel on all number inputs
@@ -2501,6 +2548,7 @@ function switchTab(tab) {
   ['tab-ex','tab-ex-d'].forEach(id => { const el = document.getElementById(id); if(el) el.classList.toggle('active', tab==='exchange'); });
   ['tab-coin','tab-coin-d'].forEach(id => { const el = document.getElementById(id); if(el) el.classList.toggle('active', tab==='coin'); });
   expandedItem = null;
+  revealedIds.clear();
   const label = tab === 'exchange' ? '+ Tambah Exchange' : '+ Tambah Coin';
   ['global-add-btn-desk','global-add-btn-mob'].forEach(id => { const el = document.getElementById(id); if(el) el.innerText = label; });
   renderList();
