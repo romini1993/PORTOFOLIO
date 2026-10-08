@@ -247,6 +247,11 @@
         border-color 0.2s;
     }
     .item-wrap.in { opacity: 1; transform: none; }
+    /* geser list saat pindah tab dengan swipe */
+    #main-list.slide-from-right { animation: slideFromRight 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    #main-list.slide-from-left  { animation: slideFromLeft  0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    @keyframes slideFromRight { from { transform: translateX(36px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+    @keyframes slideFromLeft  { from { transform: translateX(-36px); opacity: 0.4; } to { transform: none; opacity: 1; } }
     .item-wrap.instant { opacity: 1; transform: none; transition: border-color 0.2s; }
     @media (prefers-reduced-motion: reduce) {
       .item-wrap { opacity: 1; transform: none; transition: border-color 0.2s; }
@@ -2840,6 +2845,52 @@ function startHold(event, id, type) {
 }
 function moveHold(event) { if(!holdTimer) return; const touch = event.touches ? event.touches[0] : event; if(Math.abs(touch.clientX-startX)>15 || Math.abs(touch.clientY-startY)>15) clearHold(); }
 function clearHold() { clearTimeout(holdTimer); holdTimer = null; }
+
+// ══════════════════════════════
+//  SWIPE KIRI/KANAN = pindah tab (mobile)
+//  geser kiri -> Coin | geser kanan -> Exchange
+// ══════════════════════════════
+(function () {
+  let sx = 0, sy = 0, st = 0, tracking = false;
+  const isMobile = () => window.matchMedia('(max-width: 699px)').matches;
+  const blocked = el => !!(el && el.closest && el.closest('input, textarea, select, .modal-overlay, .coin-search-overlay, .ex-search-overlay'));
+
+  document.addEventListener('touchstart', e => {
+    tracking = false;
+    if (!isMobile() || e.touches.length !== 1) return;
+    if (blocked(e.target)) return;
+    if (document.getElementById('modal-overlay')?.classList.contains('active')) return;
+    if (document.getElementById('coin-search-overlay')?.classList.contains('active')) return;
+    const t = e.touches[0];
+    // abaikan sentuhan di tepi layar (biar gesture back iOS/Android nggak bentrok)
+    if (t.clientX < 24 || t.clientX > window.innerWidth - 24) return;
+    sx = t.clientX; sy = t.clientY; st = Date.now(); tracking = true;
+  }, { passive: true });
+
+  document.addEventListener('touchend', e => {
+    if (!tracking) return;
+    tracking = false;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Date.now() - st > 700) return;                       // terlalu lama = bukan swipe
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return; // harus dominan horizontal
+    if (window.getSelection && String(window.getSelection())) return;   // lagi seleksi teks
+
+    const target = dx < 0 ? 'coin' : 'exchange';
+    if (target === currentTab) return;
+    clearHold();                                             // batalin long-press kalau ada
+    switchTab(target);
+    const list = document.getElementById('main-list');
+    if (list) {
+      const cls = dx < 0 ? 'slide-from-right' : 'slide-from-left';
+      list.classList.remove('slide-from-right', 'slide-from-left');
+      void list.offsetWidth;                                 // restart animasi
+      list.classList.add(cls);
+      setTimeout(() => list.classList.remove(cls), 320);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, { passive: true });
+})();
 
 // ══════════════════════════════
 //  KEYBOARD: ENTER = eksekusi, ESC = batal (semua popup)
