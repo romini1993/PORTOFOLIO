@@ -697,7 +697,92 @@
     .mb-edit { background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--muted); }
     .mb-cancel { background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--muted); }
 
-    /* TOAST */
+
+    /* ═══════════ ANIMASI TAHAN LAMA (isian kuning ke kanan) ═══════════ */
+    :root { --g-ease: cubic-bezier(.22, 1, .36, 1); --g-spring: cubic-bezier(.34, 1.56, .64, 1); }
+    .hold-target {
+      position: relative;
+      overflow: hidden;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    .hold-target::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, rgba(217,164,65,0.30), rgba(217,164,65,0.08));
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform .25s ease;                     /* balik ke 0 saat dilepas */
+      pointer-events: none;
+      border-radius: inherit;
+    }
+    .hold-target.holding::after {
+      transform: scaleX(1);
+      transition: transform var(--hold-ms, 600ms) linear;  /* isi selama ditahan */
+    }
+    .hold-target.holding { transform: scale(0.985); transition: transform .15s ease; }
+    @media (prefers-reduced-motion: reduce) { .hold-target::after { transition-duration: .01ms !important; } }
+
+    /* ═══════════ TOAST (centang / silang digambar) ═══════════ */
+    #toastHost {
+      position: fixed; left: 0; right: 0;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
+      z-index: 9999;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      pointer-events: none;
+    }
+    @media (max-width: 699px) { #toastHost { bottom: calc(env(safe-area-inset-bottom, 0px) + 84px); } }
+    .toast-pill {
+      pointer-events: auto; position: relative; overflow: hidden;
+      display: flex; align-items: center; gap: 12px;
+      max-width: min(92vw, 380px);
+      padding: .65rem 1.2rem .7rem .7rem;
+      border-radius: 18px; color: #eef1f7;
+      font-size: 14px; font-weight: 600;
+      background: rgba(12,18,36,.84);
+      -webkit-backdrop-filter: blur(20px) saturate(160%);
+      backdrop-filter: blur(20px) saturate(160%);
+      border: 1px solid rgba(255,255,255,.1);
+      box-shadow: 0 18px 50px rgba(0,0,0,.55), 0 0 0 1px var(--t-a), 0 0 36px -6px var(--t-a);
+      cursor: pointer; opacity: 0;
+      transform: translateY(48px) scale(.9);
+      transition: transform .6s var(--g-spring), opacity .3s ease;
+    }
+    .toast-pill.is-ok  { --t: #34d399; --t-a: rgba(52,211,153,.38);  --t-bg: rgba(52,211,153,.14); }
+    .toast-pill.is-err { --t: #fb7185; --t-a: rgba(251,113,133,.38); --t-bg: rgba(251,113,133,.14); }
+    .toast-pill.show { opacity: 1; transform: none; }
+    .toast-pill.hide { opacity: 0; transform: translateY(28px) scale(.94); transition: transform .35s ease-in, opacity .3s ease; }
+    .toast-ic { position: relative; flex: none; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; color: var(--t); background: var(--t-bg); }
+    .toast-ic svg { width: 32px; height: 32px; overflow: visible; }
+    .toast-ic::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--t); opacity: 0; }
+    .tc-ring, .tc-mark { stroke-dasharray: 1; stroke-dashoffset: 1; }
+    @keyframes tDraw { to { stroke-dashoffset: 0; } }
+    @keyframes tPing { 0% { transform: scale(.85); opacity: .75; } 100% { transform: scale(2); opacity: 0; } }
+    @keyframes tShake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+    .toast-pill.show .tc-ring { animation: tDraw .55s .12s ease forwards; }
+    .toast-pill.show .tc-mark { animation: tDraw .4s .5s ease forwards; }
+    .toast-pill.show .toast-ic::after { animation: tPing .9s .45s ease-out; }
+    .toast-pill.is-err.show .toast-ic { animation: tShake .4s .55s ease; }
+    .toast-bar { position: absolute; left: 0; bottom: 0; width: 100%; height: 2px; background: var(--t); opacity: .85; transform-origin: left; }
+    @keyframes tBar { to { transform: scaleX(0); } }
+    .toast-pill.show .toast-bar { animation: tBar var(--dur, 2600ms) linear forwards; }
+    @media (prefers-reduced-motion: reduce) {
+      .toast-pill .tc-ring, .toast-pill .tc-mark, .toast-pill .toast-ic, .toast-pill .toast-ic::after, .toast-pill .toast-bar { animation: none !important; }
+      .tc-ring, .tc-mark { stroke-dashoffset: 0; }
+      .toast-pill { transition-duration: .01ms !important; }
+    }
+
+    /* ═══════════ PAGER LIST (swipe tab ngikutin jari) ═══════════ */
+    #list-pager { position: relative; overflow-x: clip; touch-action: pan-y; }
+    .list-ghost {
+      position: absolute; top: 0; width: 100%; box-sizing: border-box;
+      padding: 6px 16px 20px; display: flex; flex-direction: column; gap: 6px;
+      pointer-events: none;
+    }
+
+    /* TOAST (lama, nggak dipakai lagi) */
     #toast {
       position: fixed;
       bottom: 100px;
@@ -1353,7 +1438,7 @@
     </div>
 
     <!-- LIST -->
-    <div id="main-list"></div>
+    <div id="list-pager"><div id="main-list"></div></div>
 
     <!-- MOBILE: Bottom Bar -->
     <div class="bottom-bar">
@@ -1387,12 +1472,13 @@ let coinSearchTarget = null; // { type: 'global' | 'exchange', exchange: 'BINANC
 function logoSrcs(sym) {
   const s = sym.toLowerCase(), S = sym.toUpperCase();
   return [
-    `https://bin.bnbstatic.com/static/assets/logos/${S}.png`,                 // Binance
-    `https://static.okx.com/cdn/oksupport/asset/currency/icon/${s}.png`,     // OKX
-    `https://www.gate.io/images/coin_icon/64/${s}.png`,                       // Gate
-    `https://assets.coincap.io/assets/icons/${s}@2x.png`,                     // CoinCap
-    `https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/${s}.png`, // koin lama/populer
-  ];
+    `https://bin.bnbstatic.com/static/assets/logos/${S}.png`,                  // Binance
+    `https://static.okx.com/cdn/oksupport/asset/currency/icon/${s}.png`,      // OKX
+    `https://www.gate.io/images/coin_icon/64/${s}.png`,                        // Gate
+    // --- sumber luar (kalau exchange di atas nggak punya) ---
+    `https://assets.coincap.io/assets/icons/${s}@2x.png`,                      // CoinCap
+    `https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/${s}.png`
+  ];                                                                           // terakhir: CoinGecko (otomatis)
 }
 
 function openCoinSearch(type, exchange) {
@@ -1868,7 +1954,7 @@ function renamePopup(oldVal, type) {
   document.getElementById('modal-title').innerText = 'RENAME ' + oldVal;
   inp.style.display = 'block'; inp.value = oldVal;
   document.getElementById('modal-btns').innerHTML = `<button class="modal-btn mb-ok" id="btn-ren-ok">SIMPAN</button><button class="modal-btn mb-cancel" onclick="closeModal()">BATAL</button>`;
-  document.getElementById('btn-ren-ok').onclick = () => { renameProcess(oldVal, inp.value, type); closeModal(); };
+  document.getElementById('btn-ren-ok').onclick = () => { renameProcess(oldVal, inp.value, type); closeModal(); showToast('Nama disimpan', 'success'); };
   overlay.classList.add('active');
   setTimeout(() => { inp.focus(); const v = inp.value; inp.value = ''; inp.value = v; }, 200);
 }
@@ -2164,12 +2250,6 @@ const PRICE_SOURCES = [
       });
       return o;
   }},
-  { name: 'Gate', load: async () => {
-      const d = await fetchJSON('https://api.gateio.ws/api/v4/spot/tickers');
-      const o = {};
-      d.forEach(i => { if (i.currency_pair.endsWith('_USDT')) o[i.currency_pair.slice(0, -5)] = { p: +i.last, c: +i.change_percentage }; });
-      return o;
-  }},
   { name: 'Bitget', load: async () => {
       const d = await fetchJSON('https://api.bitget.com/api/v2/spot/market/tickers');
       const o = {};
@@ -2192,6 +2272,12 @@ const PRICE_SOURCES = [
       (d.data?.ticker || []).forEach(i => { if (i.symbol.endsWith('-USDT')) o[i.symbol.slice(0, -5)] = { p: +i.last, c: +i.changeRate * 100 }; });
       return o;
   }},
+  { name: 'Gate', load: async () => {
+      const d = await fetchJSON('https://api.gateio.ws/api/v4/spot/tickers');
+      const o = {};
+      d.forEach(i => { if (i.currency_pair.endsWith('_USDT')) o[i.currency_pair.slice(0, -5)] = { p: +i.last, c: +i.change_percentage }; });
+      return o;
+  }},
 ];
 
 async function fetchAll() {
@@ -2199,7 +2285,7 @@ async function fetchAll() {
   const STABLE = ['IDR','USDT','USDC','USD','BUSD'];
   let rem = watchlist.filter(s => !STABLE.includes(s));
 
-  // 1) Semua exchange top ditarik PARALEL; urutan array = prioritas harga
+  // 1) Semua exchange top ditarik PARALEL; prioritas: Binance > Bybit > OKX > Bitget > MEXC > KuCoin > Gate > Tokocrypto > luar
   const results = await Promise.allSettled(PRICE_SOURCES.map(src => src.load()));
   for (const r of results) {
     if (!rem.length) break;
@@ -2211,6 +2297,22 @@ async function fetchAll() {
         changes[sym] = (isFinite(x.c) ? x.c : 0).toFixed(2);
         return false;
       }
+      return true;
+    });
+  }
+
+  // 1b) Tokocrypto: nggak ada endpoint semua-ticker, jadi dicek per koin (hanya sisa yang belum ketemu)
+  if (rem.length > 0 && rem.length <= 25) {
+    const toko = await Promise.allSettled(rem.map(async sym => {
+      const d = await fetchJSON(`https://www.tokocrypto.com/open/v1/market/trades?symbol=${sym}_USDT&limit=1`, 5000);
+      const row = (d.data?.list || d.data || [])[0];
+      const p = row ? +row.price : 0;
+      return p > 0 ? { sym, p } : null;
+    }));
+    const got = {};
+    toko.forEach(r => { if (r.status === 'fulfilled' && r.value) got[r.value.sym] = r.value.p; });
+    rem = rem.filter(sym => {
+      if (got[sym]) { prices[sym] = got[sym]; if (changes[sym] == null) changes[sym] = '0.00'; return false; }
       return true;
     });
   }
@@ -2309,10 +2411,47 @@ function saveAll() {
   localStorage.setItem('my_exchanges_v2', JSON.stringify(allExchanges));
 }
 
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.innerText = msg; t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 3000);
+const TOAST_ICONS = {
+  ok:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle class="tc-ring" cx="12" cy="12" r="9.5" pathLength="1"/><path class="tc-mark" d="M7.8 12.4l2.9 2.9 5.6-6" pathLength="1"/></svg>',
+  err: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle class="tc-ring" cx="12" cy="12" r="9.5" pathLength="1"/><path class="tc-mark" d="M9 9l6 6M15 9l-6 6" pathLength="1"/></svg>'
+};
+
+// showToast('teks')                -> tipe ditebak dari teks (gagal / sudah ada / isi... = silang)
+// showToast('teks', 'success'|'error')
+function showToast(message, type) {
+  message = String(message);
+  if (!type) type = /^❌|gagal|sudah ada|^isi /i.test(message) ? 'error' : 'success';
+  message = message.replace(/^[✅❌]\s*/, '');
+  const ok = type === 'success';
+
+  let host = document.getElementById('toastHost');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'toastHost';
+    host.setAttribute('aria-live', 'polite');
+    document.body.appendChild(host);
+  }
+  while (host.children.length >= 3) host.firstElementChild.remove();
+
+  const DUR = 2600;
+  const el = document.createElement('div');
+  el.className = 'toast-pill ' + (ok ? 'is-ok' : 'is-err');
+  el.setAttribute('role', ok ? 'status' : 'alert');
+  el.style.setProperty('--dur', DUR + 'ms');
+  el.innerHTML = `<span class="toast-ic">${ok ? TOAST_ICONS.ok : TOAST_ICONS.err}</span><span class="toast-msg"></span><span class="toast-bar"></span>`;
+  el.querySelector('.toast-msg').textContent = message;
+  host.appendChild(el);
+
+  let timer = null;
+  const dismiss = () => {
+    clearTimeout(timer);
+    if (!el.isConnected || el.classList.contains('hide')) return;
+    el.classList.remove('show'); el.classList.add('hide');
+    setTimeout(() => el.remove(), 380);
+  };
+  el.addEventListener('click', dismiss);
+  requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
+  timer = setTimeout(dismiss, DUR);
 }
 
 // ══════════════════════════════
@@ -2455,9 +2594,11 @@ function toggleDetail(id) {
 let revealIO = null;
 const revealedIds = new Set();
 
+let skipRevealOnce = false;
 function revealItems(list) {
   if (revealIO) revealIO.disconnect();
   const els = list.querySelectorAll('.item-wrap');
+  if (skipRevealOnce) { skipRevealOnce = false; els.forEach(el => { el.classList.add('instant'); revealedIds.add(el.id); }); return; }
   const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // Browser lama / reduced-motion: tampilkan semua langsung
@@ -2485,8 +2626,9 @@ function revealItems(list) {
   });
 }
 
-function renderList() {
-  const list = document.getElementById('main-list');
+function renderList(targetList) {
+  const isGhost = !!targetList;
+  const list = targetList || document.getElementById('main-list');
   const query = getFilterQuery();
   const sortType = getSortType();
   let html = '';
@@ -2556,12 +2698,13 @@ function renderList() {
 
       html += `
         <div class="item-wrap${isOpen?' expanded':''}" id="wrap-${ex.name}">
-          <div class="item-card"
+          <div class="item-card hold-target"
+            oncontextmenu="return false"
             onclick="toggleDetail('${ex.name}')"
             onmousedown="startHold(event,'${ex.name}','exchange')"
-            onmousemove="moveHold(event)" onmouseup="clearHold()"
+            onmousemove="moveHold(event)" onmouseup="clearHold()" onmouseleave="clearHold()"
             ontouchstart="startHold(event,'${ex.name}','exchange')"
-            ontouchmove="moveHold(event)" ontouchend="clearHold()">
+            ontouchmove="moveHold(event)" ontouchend="clearHold()" ontouchcancel="clearHold()">
             <div class="logo-wrap">
               ${logo ? `<img src="${logo}" onerror="this.parentElement.innerHTML='<div class=\\'logo-initial\\'>${brand.substring(0,2)}</div>'">` : `<div class="logo-initial">${brand.substring(0,2)}</div>`}
             </div>
@@ -2633,12 +2776,13 @@ function renderList() {
 
       html += `
         <div class="item-wrap${isOpen?' expanded':''}" id="wrap-${s}">
-          <div class="item-card"
+          <div class="item-card hold-target"
+            oncontextmenu="return false"
             onclick="toggleDetail('${s}')"
             onmousedown="startHold(event,'${s}','coin')"
-            onmousemove="moveHold(event)" onmouseup="clearHold()"
+            onmousemove="moveHold(event)" onmouseup="clearHold()" onmouseleave="clearHold()"
             ontouchstart="startHold(event,'${s}','coin')"
-            ontouchmove="moveHold(event)" ontouchend="clearHold()">
+            ontouchmove="moveHold(event)" ontouchend="clearHold()" ontouchcancel="clearHold()">
             <div class="logo-wrap">
               ${coinIconHtml(s)}
             </div>
@@ -2664,7 +2808,8 @@ function renderList() {
   }
 
   list.innerHTML = html;
-  revealItems(list);
+  if (isGhost) list.querySelectorAll('.item-wrap').forEach(el => el.classList.add('instant'));
+  else revealItems(list);
   updatePricesOnly();
 
   // Disable scroll-wheel on all number inputs
@@ -2723,7 +2868,7 @@ function handleGlobalAdd() {
     inp.style.textTransform = '';
     if (!v) return;
     closeModal();
-    if (!allExchanges.includes(v)) { allExchanges.push(v); saveAll(); renderList(); }
+    if (!allExchanges.includes(v)) { allExchanges.push(v); saveAll(); renderList(); showToast(`${v} ditambahkan`, 'success'); }
     else showToast(`Exchange ${v} sudah ada!`);
   };
   overlay.classList.add('active');
@@ -2743,7 +2888,7 @@ function addCoinToExchange(ex) {
   const s = input.value.toUpperCase().trim();
   if(s) {
     if(!watchlist.includes(s)) { watchlist.push(s); coinSources[s] = []; }
-    if(!coinSources[s].includes(ex)) { coinSources[s].push(ex); saveAll(); input.value = ''; renderList(); fetchAll(); }
+    if(!coinSources[s].includes(ex)) { coinSources[s].push(ex); saveAll(); input.value = ''; renderList(); fetchAll(); showToast(`${s} ditambahkan`, 'success'); }
     else showToast('Koin sudah ada!');
   }
 }
@@ -2760,8 +2905,8 @@ function addCustomSource(s) {
   }
 }
 
-function removeCoinFromExchange(s, ex) { coinSources[s] = coinSources[s].filter(i => i !== ex); saveAll(); renderList(); }
-function removeSource(s, src) { coinSources[s] = coinSources[s].filter(i => i !== src); saveAll(); renderList(); }
+function removeCoinFromExchange(s, ex) { coinSources[s] = coinSources[s].filter(i => i !== ex); saveAll(); renderList(); showToast(`${s} dihapus`, 'error'); }
+function removeSource(s, src) { coinSources[s] = coinSources[s].filter(i => i !== src); saveAll(); renderList(); showToast(`${src} dihapus`, 'error'); }
 
 function resetApp() {
   localStorage.clear(); watchlist = []; balances = {}; coinSources = {}; allExchanges = []; prices = {}; changes = {};
@@ -2834,62 +2979,142 @@ function renameProcess(oldVal, newVal, type) {
   }
 }
 
-// HOLD (long press)
+// HOLD (long press) -> isian kuning jalan ke kanan, penuh = popup hapus/edit
+const HOLD_MS = 600;
+let noClickUntil = 0;   // blok klik nyasar habis long-press / swipe
 function startHold(event, id, type) {
+  if (event.type === 'mousedown' && event.button !== 0) return;   // klik kiri saja
+  clearHold();
   const touch = event.touches ? event.touches[0] : event;
   startX = touch.clientX; startY = touch.clientY;
+  const el = event.currentTarget;
+  if (el && el.classList) {
+    el.style.setProperty('--hold-ms', HOLD_MS + 'ms');
+    el.classList.add('holding');
+  }
   holdTimer = setTimeout(() => {
-    if(type === 'exchange') confirmModal(`HAPUS ${id}?`, 'delete', () => { allExchanges = allExchanges.filter(ex => ex !== id); saveAll(); renderList(); }, () => renamePopup(id, 'exchange'));
-    else confirmModal(`HAPUS ${id}?`, 'delete', () => { watchlist = watchlist.filter(s => s !== id); delete balances[id]; delete coinSources[id]; saveAll(); renderList(); }, () => renamePopup(id, 'coin'));
-  }, 700);
+    holdTimer = null;
+    if (el && el.classList) el.classList.remove('holding');
+    if (navigator.vibrate) navigator.vibrate(40);
+    noClickUntil = Date.now() + 700;
+    if(type === 'exchange') confirmModal(`HAPUS ${id}?`, 'delete', () => { allExchanges = allExchanges.filter(ex => ex !== id); saveAll(); renderList(); showToast(`${id} dihapus`, 'error'); }, () => renamePopup(id, 'exchange'));
+    else confirmModal(`HAPUS ${id}?`, 'delete', () => { watchlist = watchlist.filter(s => s !== id); delete balances[id]; delete coinSources[id]; saveAll(); renderList(); showToast(`${id} dihapus`, 'error'); }, () => renamePopup(id, 'coin'));
+  }, HOLD_MS);
 }
 function moveHold(event) { if(!holdTimer) return; const touch = event.touches ? event.touches[0] : event; if(Math.abs(touch.clientX-startX)>15 || Math.abs(touch.clientY-startY)>15) clearHold(); }
-function clearHold() { clearTimeout(holdTimer); holdTimer = null; }
+function clearHold() {
+  clearTimeout(holdTimer); holdTimer = null;
+  document.querySelectorAll('.hold-target.holding').forEach(el => el.classList.remove('holding'));
+}
 
 // ══════════════════════════════
-//  SWIPE KIRI/KANAN = pindah tab (mobile)
-//  geser kiri -> Coin | geser kanan -> Exchange
+//  SWIPE TAB (mobile): halaman ngikutin jari secara real-time.
+//  Lepas jari: lewat ~30% layar / cukup kencang = pindah, kalau nggak = balik.
 // ══════════════════════════════
 (function () {
-  let sx = 0, sy = 0, st = 0, tracking = false;
-  const isMobile = () => window.matchMedia('(max-width: 699px)').matches;
+  const mq = window.matchMedia('(max-width: 699px)');
+  const SLIDE_MS = 280, EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
+  let st = null, busy = false;
+
   const blocked = el => !!(el && el.closest && el.closest('input, textarea, select, .modal-overlay, .coin-search-overlay, .ex-search-overlay'));
+  const overlayOpen = () => ['modal-overlay', 'coin-search-overlay'].some(id => document.getElementById(id)?.classList.contains('active'));
+
+  function begin() {
+    const pager = document.getElementById('list-pager');
+    const list = document.getElementById('main-list');
+    st.pager = pager; st.list = list; st.w = pager.clientWidth || window.innerWidth;
+    st.sign = currentTab === 'exchange' ? 1 : -1;               // sisi tab tetangga (+1 kanan, -1 kiri)
+    st.neighbor = currentTab === 'exchange' ? 'coin' : 'exchange';
+
+    const ghost = document.createElement('div');
+    ghost.className = 'list-ghost';
+    ghost.style.left = (st.sign * 100) + '%';
+    pager.appendChild(ghost);
+    const prev = currentTab;
+    currentTab = st.neighbor;                                    // render tab tetangga ke "ghost"
+    try { renderList(ghost); } finally { currentTab = prev; }
+    st.ghost = ghost;
+
+    pager.style.minHeight = Math.max(list.offsetHeight, ghost.offsetHeight) + 'px';
+    list.style.transition = ghost.style.transition = 'none';
+    list.style.willChange = ghost.style.willChange = 'transform';
+  }
+
+  function setX(dx) {
+    st.list.style.transform = `translate3d(${dx}px,0,0)`;
+    st.ghost.style.transform = `translate3d(${dx}px,0,0)`;
+  }
+
+  function cleanup() {
+    if (!st) return;
+    const { list, ghost, pager } = st;
+    list.style.transition = 'none'; list.style.transform = ''; list.style.willChange = '';
+    if (ghost) ghost.remove();
+    pager.style.minHeight = '';
+    st = null; busy = false;
+  }
 
   document.addEventListener('touchstart', e => {
-    tracking = false;
-    if (!isMobile() || e.touches.length !== 1) return;
-    if (blocked(e.target)) return;
-    if (document.getElementById('modal-overlay')?.classList.contains('active')) return;
-    if (document.getElementById('coin-search-overlay')?.classList.contains('active')) return;
+    if (busy) return;
+    st = null;
+    if (!mq.matches || e.touches.length !== 1 || blocked(e.target) || overlayOpen()) return;
     const t = e.touches[0];
-    // abaikan sentuhan di tepi layar (biar gesture back iOS/Android nggak bentrok)
-    if (t.clientX < 24 || t.clientX > window.innerWidth - 24) return;
-    sx = t.clientX; sy = t.clientY; st = Date.now(); tracking = true;
+    if (t.clientX < 20 || t.clientX > window.innerWidth - 20) return;   // tepi layar = gesture back sistem
+    st = { x: t.clientX, y: t.clientY, locked: null, vx: 0, lx: t.clientX, lt: performance.now(), dx: 0 };
   }, { passive: true });
 
-  document.addEventListener('touchend', e => {
-    if (!tracking) return;
-    tracking = false;
-    const t = e.changedTouches[0];
-    const dx = t.clientX - sx, dy = t.clientY - sy;
-    if (Date.now() - st > 700) return;                       // terlalu lama = bukan swipe
-    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return; // harus dominan horizontal
-    if (window.getSelection && String(window.getSelection())) return;   // lagi seleksi teks
+  document.addEventListener('touchmove', e => {
+    if (!st || busy || st.locked === 'v') return;
+    const t = e.touches[0];
+    const dx = t.clientX - st.x, dy = t.clientY - st.y;
 
-    const target = dx < 0 ? 'coin' : 'exchange';
-    if (target === currentTab) return;
-    clearHold();                                             // batalin long-press kalau ada
-    switchTab(target);
-    const list = document.getElementById('main-list');
-    if (list) {
-      const cls = dx < 0 ? 'slide-from-right' : 'slide-from-left';
-      list.classList.remove('slide-from-right', 'slide-from-left');
-      void list.offsetWidth;                                 // restart animasi
-      list.classList.add(cls);
-      setTimeout(() => list.classList.remove(cls), 320);
+    if (!st.locked) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      if (Math.abs(dx) > Math.abs(dy) * 1.2) { st.locked = 'h'; clearHold(); begin(); }
+      else { st.locked = 'v'; return; }
     }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, { passive: true });
+    if (e.cancelable) e.preventDefault();
+
+    // kecepatan jari (px/ms)
+    const now = performance.now();
+    if (now - st.lt > 0) st.vx = (t.clientX - st.lx) / (now - st.lt);
+    st.lx = t.clientX; st.lt = now;
+
+    // gerak ke arah tab tetangga = ngikutin jari; arah sebaliknya = karet (ditahan)
+    let x = dx;
+    if (dx * st.sign > 0) x = dx * 0.2;
+    else x = Math.max(-st.w, Math.min(st.w, dx));
+    st.dx = x;
+    setX(x);
+  }, { passive: false });
+
+  function finish(cancelled) {
+    if (!st || st.locked !== 'h' || busy) { if (!busy) st = null; return; }
+    const { list, ghost, w, sign, neighbor } = st;
+    const toward = st.dx * sign < 0;
+    const fast = toward && Math.abs(st.vx) > 0.45 && (st.vx * sign < 0);
+    const commit = !cancelled && toward && (Math.abs(st.dx) > w * 0.3 || fast);
+
+    busy = true; noClickUntil = Date.now() + 400;
+    const tr = `transform ${SLIDE_MS}ms ${EASE}`;
+    list.style.transition = ghost.style.transition = tr;
+    setX(commit ? -sign * w : 0);
+
+    setTimeout(() => {
+      if (commit) {
+        skipRevealOnce = true;
+        switchTab(neighbor);          // render asli, list masih di luar layar
+      }
+      cleanup();                      // langsung reset transform + buang ghost (1 frame, nggak kedip)
+    }, SLIDE_MS + 20);
+  }
+  document.addEventListener('touchend', () => finish(false), { passive: true });
+  document.addEventListener('touchcancel', () => finish(true), { passive: true });
+
+  // habis swipe jangan ikut kebuka/ketutup item karena "klik" nyasar
+  document.addEventListener('click', e => {
+    if (e.isTrusted && Date.now() < noClickUntil) { e.stopPropagation(); e.preventDefault(); }   // hanya klik asli dari jari; klik dari kode (Enter) lolos
+  }, true);
 })();
 
 // ══════════════════════════════
