@@ -1472,12 +1472,15 @@ let coinSearchTarget = null; // { type: 'global' | 'exchange', exchange: 'BINANC
 function logoSrcs(sym) {
   const s = sym.toLowerCase(), S = sym.toUpperCase();
   return [
+    // exchange gede dulu
     `https://bin.bnbstatic.com/static/assets/logos/${S}.png`,                  // Binance
     `https://static.okx.com/cdn/oksupport/asset/currency/icon/${s}.png`,      // OKX
-    `https://www.gate.io/images/coin_icon/64/${s}.png`,                        // Gate
-    // --- sumber luar (kalau exchange di atas nggak punya) ---
+    `https://gate.io/images/coin_icon/64/${s}.png`,                            // Gate (host asli, tanpa www)
+    // sumber luar (semua yang dulu ada tetap dipakai)
     `https://assets.coincap.io/assets/icons/${s}@2x.png`,                      // CoinCap
-    `https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/${s}.png`
+    `https://coinicons-api.vercel.app/api/icon/${s}`,                          // CoinIcons
+    `https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/${s}.png`,
+    `https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/32/color/${s}.png`
   ];                                                                           // terakhir: CoinGecko (otomatis)
 }
 
@@ -2004,15 +2007,21 @@ window.addEventListener('scroll', () => {
 // ══════════════════════════════
 let logoCache = {};
 try { logoCache = JSON.parse(localStorage.getItem('coin_logo_cache_v1') || '{}'); } catch(e) { logoCache = {}; }
-// Buang status "NONE" yang lama supaya sumber icon baru dicoba (retry otomatis tiap 3 hari)
+// Status "NONE" = koin yang dianggap nggak punya icon. Kadaluarsa otomatis (key __t_ = waktu kadaluarsa).
 (function () {
   let dirty = false;
   const now = Date.now();
+  // sekali jalan: buang semua NONE yang kebentuk oleh versi sebelumnya (sumber icon-nya dulu belum lengkap)
+  if (!localStorage.getItem('logo_none_purged_v2')) {
+    Object.keys(logoCache).forEach(k => { if (logoCache[k] === 'NONE' || k.startsWith('__t_')) { delete logoCache[k]; } });
+    try { localStorage.setItem('logo_none_purged_v2', '1'); } catch(e) {}
+    dirty = true;
+  }
   Object.keys(logoCache).forEach(k => {
     if (k.startsWith('__t_')) return;
     if (logoCache[k] === 'NONE') {
       const t = logoCache['__t_' + k];
-      if (!t || now - t > 3 * 86400000) { delete logoCache[k]; delete logoCache['__t_' + k]; dirty = true; }
+      if (!t || now > t) { delete logoCache[k]; delete logoCache['__t_' + k]; dirty = true; }
     }
   });
   if (dirty) { try { localStorage.setItem('coin_logo_cache_v1', JSON.stringify(logoCache)); } catch(e) {} }
@@ -2047,25 +2056,32 @@ function coinIconHtml(sym) {
 const logoCG = {};          // SYMBOL -> url gambar dari CoinGecko
 const logoCGPending = {};   // biar nggak request dobel
 
-async function logoFromCG(sym) {
-  if (logoCG[sym]) return logoCG[sym];
+let cgQueue = Promise.resolve();
+const sleepMs = ms => new Promise(r => setTimeout(r, ms));
+
+function logoFromCG(sym) {
+  if (logoCG[sym]) return Promise.resolve({ url: logoCG[sym] });
   if (!logoCGPending[sym]) {
-    logoCGPending[sym] = (async () => {
+    const job = cgQueue.then(async () => {
       try {
         const d = await fetchJSON(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&symbols=${sym.toLowerCase()}`, 8000);
         const hit = d.filter(c => c.image && c.symbol.toUpperCase() === sym)
                      .sort((x, y) => (x.market_cap_rank || 1e9) - (y.market_cap_rank || 1e9))[0];
-        if (hit) logoCG[sym] = hit.image;
-      } catch(e) {}
-      return logoCG[sym] || null;
-    })();
+        if (hit) { logoCG[sym] = hit.image; return { url: hit.image }; }
+        return { url: null, transient: false };      // beneran nggak ada
+      } catch (e) {
+        return { url: null, transient: true };       // error / rate-limit: jangan di-cache lama
+      }
+    });
+    cgQueue = job.then(() => sleepMs(1100), () => sleepMs(1100));   // antre, jeda antar request
+    logoCGPending[sym] = job;
   }
   return logoCGPending[sym];
 }
 
-function logoGiveUp(img, sym) {
+function logoGiveUp(img, sym, transient) {
   logoCache[sym] = 'NONE';
-  logoCache['__t_' + sym] = Date.now();   // dicoba lagi setelah 3 hari
+  logoCache['__t_' + sym] = Date.now() + (transient ? 10 * 60 * 1000 : 3 * 86400000);   // kadaluarsa -> dicoba lagi
   saveLogoCache();
   if (img.parentElement) img.parentElement.innerHTML = `<div class="logo-initial">${sym.substring(0,2)}</div>`;
 }
@@ -2078,7 +2094,7 @@ function handleLogoError(img, sym) {
   // semua sumber exchange gagal -> coba gambar dari CoinGecko (1x, di-cache)
   if (retry === sources.length) {
     img.setAttribute('data-retry', retry + 1);
-    logoFromCG(sym).then(u => { if (u) img.src = u; else logoGiveUp(img, sym); });
+    logoFromCG(sym).then(r => { if (r.url) img.src = r.url; else logoGiveUp(img, sym, r.transient); });
     return;
   }
   logoGiveUp(img, sym);
