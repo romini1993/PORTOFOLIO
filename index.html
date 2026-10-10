@@ -530,7 +530,18 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
+      transform: translate3d(0, 0, 0);
+      transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
     }
+    .bottom-bar.bk-hidden { transform: translate3d(0, var(--bk-h, 0px), 0); }
+    /* blur 20px di atas list yang lagi di-scroll itu berat banget di HP; background sudah ~opaque jadi hampir nggak beda */
+    @media (max-width: 699px) {
+      .summary-wrap, .bottom-bar { backdrop-filter: none; -webkit-backdrop-filter: none; }
+      .bottom-bar { background: rgba(10,10,15,0.98); }
+      /* bar yang digeser ke bawah nggak boleh nambah tinggi halaman (nggak jadi area scroll kosong) */
+      .main-content { overflow-y: clip; }
+    }
+    @media (prefers-reduced-motion: reduce) { .bottom-bar { transition-duration: .01ms; } }
 
     .add-row {
       display: flex;
@@ -568,15 +579,11 @@
       display: flex;
       flex-wrap: wrap;
       gap: 5px;
-      overflow: hidden;
-      max-height: 160px;
-      transition: max-height 0.3s ease, opacity 0.3s ease;
       opacity: 1;
+      transition: opacity 0.25s ease;
     }
-    .backup-row.hidden {
-      max-height: 0;
-      opacity: 0;
-    }
+    /* disembunyikan lewat transform (jalur GPU), tinggi layout TETAP -> nggak ada reflow saat scroll */
+    .bottom-bar.bk-hidden .backup-row { opacity: 0; }
     .bk-btn-sync-pair {
       flex: 1 1 100%;
       display: flex;
@@ -1987,25 +1994,31 @@ function openExcelPopup() {
 // ══════════════════════════════
 let lastScrollY = 0;
 let scrollTicking = false;
+let scrollAcc = 0;                // akumulasi gerak searah (biar nggak kedip-kedip karena getaran kecil)
 window.addEventListener('scroll', () => {
   if (scrollTicking) return;
   scrollTicking = true;
   requestAnimationFrame(() => {
-    const cur = window.scrollY;
-    const br = document.getElementById('backup-row');
-    if (br) {
-      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-      const nearBottom = maxScroll - cur < 60;
-      if (nearBottom) {
-        // jangan toggle apapun di ujung bawah
-      } else if (cur > lastScrollY && cur > 40) {
-        br.classList.add('hidden');
-      } else if (cur < lastScrollY) {
-        br.classList.remove('hidden');
-      }
-    }
-    lastScrollY = cur;
     scrollTicking = false;
+    const cur = window.scrollY;
+    const bar = document.querySelector('.bottom-bar');
+    const br = document.getElementById('backup-row');
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    const d = cur - lastScrollY;
+    lastScrollY = cur;
+    if (!bar || !br) return;
+    if (cur <= 0 || cur >= max - 2) { scrollAcc = 0; return; }      // ujung atas/bawah (termasuk bounce iOS): diam
+    if (d === 0) return;
+    if (Math.sign(d) !== Math.sign(scrollAcc)) scrollAcc = 0;
+    scrollAcc += d;
+    if (scrollAcc > 24 && cur > 60) {
+      if (!bar.classList.contains('bk-hidden')) {
+        bar.style.setProperty('--bk-h', (br.offsetHeight + 8) + 'px');   // tinggi baris backup + gap
+        bar.classList.add('bk-hidden');
+      }
+    } else if (scrollAcc < -16) {
+      bar.classList.remove('bk-hidden');
+    }
   });
 }, { passive: true });
 
