@@ -287,6 +287,11 @@
       flex-shrink: 0;
     }
     .logo-wrap img { width: 100%; height: 100%; object-fit: cover; }
+    /* icon koin: inisial tampil dulu, gambar baru muncul kalau BENAR-BENAR sudah ke-load (nggak ada image rusak) */
+    .logo-wrap, .stat-icon, .src-label-logo { position: relative; }
+    img.coin-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; visibility: hidden; }
+    img.coin-img.ok { visibility: visible; }
+    .hold-target input, .hold-target textarea { -webkit-user-select: text; user-select: text; }
     .logo-initial {
       font-family: var(--mono);
       font-size: 10px;
@@ -775,7 +780,8 @@
     }
 
     /* ═══════════ PAGER LIST (swipe tab ngikutin jari) ═══════════ */
-    #list-pager { position: relative; overflow-x: clip; touch-action: pan-y; }
+    html, body { touch-action: pan-y pinch-zoom; overscroll-behavior-x: none; }   /* scroll vertikal native & mulus; horizontal buat swipe tab */
+    #list-pager { position: relative; overflow-x: clip; touch-action: pan-y pinch-zoom; }
     .list-ghost {
       position: absolute; top: 0; width: 100%; box-sizing: border-box;
       padding: 6px 16px 20px; display: flex; flex-direction: column; gap: 6px;
@@ -1584,8 +1590,9 @@ function filterCoinSearch() {
     const safeSym  = c.symbol.replace(/'/g,"\\'");
     return `<div class="coin-search-item ${isAdded ? 'already' : ''}"
       onclick="${isAdded ? '' : `pickCoinFromSearch('${safeId}','${safeName}','${safeSym}')`}">
-      <img class="coin-search-thumb" src="${src}"
-        onerror="this.src='';this.style.background='var(--surface)'">
+      <img class="coin-search-thumb" ${IMG_ATTR} style="visibility:hidden" data-retry="${logoCache[symU] && logoCache[symU] !== 'NONE' ? 0 : 1}"
+        src="${logoCache[symU] && logoCache[symU] !== 'NONE' ? logoCache[symU] : src}"
+        onload="this.style.visibility='visible'" onerror="thumbError(this,'${safeSym}')">
       <div>
         <div class="coin-search-name">${c.name}</div>
         <div class="coin-search-sym">${symU}${isAdded ? ' · sudah di exchange ini' : ''}</div>
@@ -2041,16 +2048,29 @@ function cacheLogo(sym, src) {
 // Bikin markup icon koin. Kalau sudah pernah ketemu logo yang jalan (atau
 // sudah dipastikan tidak ada logonya), langsung pakai hasil cache itu -
 // jadi ganti tab / re-render TIDAK perlu ulang proses coba-coba (no more kedip).
+const IMG_ATTR = 'alt="" referrerpolicy="no-referrer" decoding="async"';
+
 function coinIconHtml(sym) {
   if (sym === 'IDR') return `<div class="logo-initial" style="color:#22d3a0">RP</div>`;
+  const ini = sym.substring(0, 2);
   const cached = logoCache[sym];
-  if (cached === 'NONE') {
-    return `<div class="logo-initial">${sym.substring(0,2)}</div>`;
-  }
+  if (cached === 'NONE') return `<div class="logo-initial">${ini}</div>`;
   if (cached) {
-    return `<img src="${cached}" onerror="handleLogoError(this,'${sym}')" onload="cacheLogo('${sym}', this.currentSrc || this.src)">`;
+    // url yang sudah pernah jalan: langsung tampil (kalau suatu saat rusak, otomatis dicoba sumber lain)
+    return `<img class="coin-img ok" ${IMG_ATTR} src="${cached}" data-retry="0" onerror="handleLogoError(this,'${sym}')" onload="logoLoaded(this,'${sym}')">`;
   }
-  return `<img src="any" onerror="handleLogoError(this,'${sym}')" onload="cacheLogo('${sym}', this.currentSrc || this.src)">`;
+  // belum pernah: inisial dulu, gambar nyusul begitu ketemu
+  const first = logoSrcs(sym)[0];
+  return `<span class="logo-initial logo-ph">${ini}</span><img class="coin-img" ${IMG_ATTR} src="${first}" data-retry="1" onerror="handleLogoError(this,'${sym}')" onload="logoLoaded(this,'${sym}')">`;
+}
+
+function logoLoaded(img, sym) {
+  // gambar 1x1 / kosong dianggap gagal
+  if (img.naturalWidth && img.naturalWidth < 4) { handleLogoError(img, sym); return; }
+  img.classList.add('ok');
+  const ph = img.previousElementSibling;
+  if (ph && ph.classList.contains('logo-ph')) ph.remove();
+  cacheLogo(sym, img.currentSrc || img.src);
 }
 
 const logoCG = {};          // SYMBOL -> url gambar dari CoinGecko
@@ -2086,12 +2106,24 @@ function logoGiveUp(img, sym, transient) {
   if (img.parentElement) img.parentElement.innerHTML = `<div class="logo-initial">${sym.substring(0,2)}</div>`;
 }
 
-function handleLogoError(img, sym) {
-  if (sym === 'IDR') { img.parentElement.innerHTML = `<div class="logo-initial" style="color:#22d3a0">RP</div>`; return; }
+function thumbError(img, sym) {
   const retry = parseInt(img.getAttribute('data-retry') || '0');
   const sources = logoSrcs(sym);
   if (retry < sources.length) { img.setAttribute('data-retry', retry + 1); img.src = sources[retry]; return; }
-  // semua sumber exchange gagal -> coba gambar dari CoinGecko (1x, di-cache)
+  img.outerHTML = `<div class="coin-search-thumb" style="display:flex;align-items:center;justify-content:center;background:var(--surface);color:var(--accent);font:700 10px var(--mono)">${sym.substring(0,2).toUpperCase()}</div>`;
+}
+
+function handleLogoError(img, sym) {
+  if (sym === 'IDR') { img.parentElement.innerHTML = `<div class="logo-initial" style="color:#22d3a0">RP</div>`; return; }
+  // sembunyikan gambar rusak + pastikan inisial tampil selama nyari sumber lain
+  img.classList.remove('ok');
+  const prev = img.previousElementSibling;
+  if (!(prev && prev.classList.contains('logo-ph'))) img.insertAdjacentHTML('beforebegin', `<span class="logo-initial logo-ph">${sym.substring(0,2)}</span>`);
+
+  const retry = parseInt(img.getAttribute('data-retry') || '0');
+  const sources = logoSrcs(sym);
+  if (retry < sources.length) { img.setAttribute('data-retry', retry + 1); img.src = sources[retry]; return; }
+  // semua sumber exchange/luar gagal -> coba gambar dari CoinGecko (1x, antre, di-cache)
   if (retry === sources.length) {
     img.setAttribute('data-retry', retry + 1);
     logoFromCG(sym).then(r => { if (r.url) img.src = r.url; else logoGiveUp(img, sym, r.transient); });
@@ -2154,7 +2186,8 @@ window.onload = () => {
   fetchKurs();
   fetchCoinMap();
   fetchAll();
-  setInterval(fetchAll, 60000);
+  setInterval(() => { if (!document.hidden) fetchAll(); }, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - lastFetchAt > 30000) fetchAll(); });
 };
 
 function migrateToUppercase() {
@@ -2241,148 +2274,160 @@ async function fetchJSON(url, ms = 7000) {
 }
 
 // Tiap sumber -> { SYMBOL: { p: harga USD, c: perubahan 24j (%) } }  (pair USDT saja)
+// load(want): cuma koin yang dicari (want) yang diambil dari respon, jadi hemat memori/CPU.
 const PRICE_SOURCES = [
-  { name: 'Binance', load: async () => {
+  { name: 'Binance', load: async want => {
       let d;
       try { d = await fetchJSON('https://api.binance.com/api/v3/ticker/24hr'); }
       catch (e) { d = await fetchJSON('https://data-api.binance.vision/api/v3/ticker/24hr'); } // mirror
       const o = {};
-      d.forEach(i => { if (i.symbol.endsWith('USDT')) o[i.symbol.slice(0, -4)] = { p: +i.lastPrice, c: +i.priceChangePercent }; });
+      for (const i of d) { if (!i.symbol.endsWith('USDT')) continue; const b = i.symbol.slice(0, -4); if (want.has(b)) o[b] = { p: +i.lastPrice, c: +i.priceChangePercent }; }
       return o;
   }},
-  { name: 'Bybit', load: async () => {
+  { name: 'Bybit', load: async want => {
       const d = await fetchJSON('https://api.bybit.com/v5/market/tickers?category=spot');
       const o = {};
-      (d.result?.list || []).forEach(i => { if (i.symbol.endsWith('USDT')) o[i.symbol.slice(0, -4)] = { p: +i.lastPrice, c: +i.price24hPcnt * 100 }; });
+      for (const i of (d.result?.list || [])) { if (!i.symbol.endsWith('USDT')) continue; const b = i.symbol.slice(0, -4); if (want.has(b)) o[b] = { p: +i.lastPrice, c: +i.price24hPcnt * 100 }; }
       return o;
   }},
-  { name: 'OKX', load: async () => {
+  { name: 'OKX', load: async want => {
       const d = await fetchJSON('https://www.okx.com/api/v5/market/tickers?instType=SPOT');
       const o = {};
-      (d.data || []).forEach(i => {
-        if (!i.instId.endsWith('-USDT')) return;
+      for (const i of (d.data || [])) {
+        if (!i.instId.endsWith('-USDT')) continue; const b = i.instId.slice(0, -5); if (!want.has(b)) continue;
         const last = +i.last, open = +i.open24h;
-        o[i.instId.slice(0, -5)] = { p: last, c: open ? (last - open) / open * 100 : 0 };
-      });
+        o[b] = { p: last, c: open ? (last - open) / open * 100 : 0 };
+      }
       return o;
   }},
-  { name: 'Bitget', load: async () => {
+  { name: 'Bitget', load: async want => {
       const d = await fetchJSON('https://api.bitget.com/api/v2/spot/market/tickers');
       const o = {};
-      (d.data || []).forEach(i => { if (i.symbol.endsWith('USDT')) o[i.symbol.slice(0, -4)] = { p: +i.lastPr, c: +i.change24h * 100 }; });
+      for (const i of (d.data || [])) { if (!i.symbol.endsWith('USDT')) continue; const b = i.symbol.slice(0, -4); if (want.has(b)) o[b] = { p: +i.lastPr, c: +i.change24h * 100 }; }
       return o;
   }},
-  { name: 'MEXC', load: async () => {
+  { name: 'MEXC', load: async want => {
       const d = await fetchJSON('https://api.mexc.com/api/v3/ticker/24hr');
       const o = {};
-      d.forEach(i => {
-        if (!i.symbol.endsWith('USDT')) return;
+      for (const i of d) {
+        if (!i.symbol.endsWith('USDT')) continue; const b = i.symbol.slice(0, -4); if (!want.has(b)) continue;
         const last = +i.lastPrice, open = +i.openPrice;
-        o[i.symbol.slice(0, -4)] = { p: last, c: open ? (last - open) / open * 100 : 0 };
-      });
+        o[b] = { p: last, c: open ? (last - open) / open * 100 : 0 };
+      }
       return o;
   }},
-  { name: 'KuCoin', load: async () => {
+  { name: 'KuCoin', load: async want => {
       const d = await fetchJSON('https://api.kucoin.com/api/v1/market/allTickers');
       const o = {};
-      (d.data?.ticker || []).forEach(i => { if (i.symbol.endsWith('-USDT')) o[i.symbol.slice(0, -5)] = { p: +i.last, c: +i.changeRate * 100 }; });
+      for (const i of (d.data?.ticker || [])) { if (!i.symbol.endsWith('-USDT')) continue; const b = i.symbol.slice(0, -5); if (want.has(b)) o[b] = { p: +i.last, c: +i.changeRate * 100 }; }
       return o;
   }},
-  { name: 'Gate', load: async () => {
+  { name: 'Gate', load: async want => {
       const d = await fetchJSON('https://api.gateio.ws/api/v4/spot/tickers');
       const o = {};
-      d.forEach(i => { if (i.currency_pair.endsWith('_USDT')) o[i.currency_pair.slice(0, -5)] = { p: +i.last, c: +i.change_percentage }; });
+      for (const i of d) { if (!i.currency_pair.endsWith('_USDT')) continue; const b = i.currency_pair.slice(0, -5); if (want.has(b)) o[b] = { p: +i.last, c: +i.change_percentage }; }
       return o;
   }},
 ];
 
+// Catatan "koin X nggak ada di exchange Y" (berlaku 30 menit) -> exchange itu nggak di-download lagi tiap refresh
+const priceMiss = {};
+async function pullSource(src, wantSyms) {
+  const miss = priceMiss[src.name] || (priceMiss[src.name] = {});
+  const now = Date.now();
+  const need = wantSyms.filter(sym => !(miss[sym] > now));
+  if (!need.length) return null;                      // semua sudah pasti nggak ada di sini: skip download
+  try {
+    const map = await src.load(new Set(need));
+    need.forEach(sym => { if (!map[sym]) miss[sym] = now + 30 * 60000; });
+    return map;
+  } catch (e) { return null; }                        // error jaringan: jangan dicatat sebagai "nggak ada"
+}
+
+let lastFetchAt = 0;
 async function fetchAll() {
-  if(isFetching) return; isFetching = true;
-  const STABLE = ['IDR','USDT','USDC','USD','BUSD'];
-  let rem = watchlist.filter(s => !STABLE.includes(s));
+  if (isFetching) return; isFetching = true;
+  try {
+    const STABLE = ['IDR','USDT','USDC','USD','BUSD'];
+    let rem = watchlist.filter(s => !STABLE.includes(s));
 
-  // 1) Semua exchange top ditarik PARALEL; prioritas: Binance > Bybit > OKX > Bitget > MEXC > KuCoin > Gate > Tokocrypto > luar
-  const results = await Promise.allSettled(PRICE_SOURCES.map(src => src.load()));
-  for (const r of results) {
-    if (!rem.length) break;
-    if (r.status !== 'fulfilled') continue;
-    rem = rem.filter(sym => {
-      const x = r.value[sym];
-      if (x && isFinite(x.p) && x.p > 0) {
-        prices[sym] = x.p;
-        changes[sym] = (isFinite(x.c) ? x.c : 0).toFixed(2);
-        return false;
-      }
-      return true;
-    });
-  }
-
-  // 1b) Tokocrypto: nggak ada endpoint semua-ticker, jadi dicek per koin (hanya sisa yang belum ketemu)
-  if (rem.length > 0 && rem.length <= 25) {
-    const toko = await Promise.allSettled(rem.map(async sym => {
-      const d = await fetchJSON(`https://www.tokocrypto.com/open/v1/market/trades?symbol=${sym}_USDT&limit=1`, 5000);
-      const row = (d.data?.list || d.data || [])[0];
-      const p = row ? +row.price : 0;
-      return p > 0 ? { sym, p } : null;
-    }));
-    const got = {};
-    toko.forEach(r => { if (r.status === 'fulfilled' && r.value) got[r.value.sym] = r.value.p; });
-    rem = rem.filter(sym => {
-      if (got[sym]) { prices[sym] = got[sym]; if (changes[sym] == null) changes[sym] = '0.00'; return false; }
-      return true;
-    });
-  }
-
-  // 2) Fallback CoinGecko /coins/markets by symbol (pilih yang market cap-nya paling gede,
-  //    jadi nggak salah ambil koin kembaran simbol)
-  if (rem.length > 0) {
-    try {
-      const d = await fetchJSON(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&symbols=${rem.map(x => x.toLowerCase()).join(',')}&price_change_percentage=24h`, 10000);
-      const best = {};
-      d.forEach(c => {
-        const S = c.symbol.toUpperCase();
-        const rank = c.market_cap_rank || 1e9;
-        if (!best[S] || rank < best[S].rank) best[S] = { rank, c };
-        if (c.image) logoCG[S] = logoCG[S] || c.image;
-      });
+    const apply = map => {
       rem = rem.filter(sym => {
-        const b = best[sym];
-        if (b && b.c.current_price) {
-          prices[sym] = b.c.current_price;
-          changes[sym] = (b.c.price_change_percentage_24h ?? 0).toFixed(2);
-          return false;
-        }
+        const x = map[sym];
+        if (x && isFinite(x.p) && x.p > 0) { prices[sym] = x.p; changes[sym] = (isFinite(x.c) ? x.c : 0).toFixed(2); return false; }
         return true;
       });
-    } catch(e) {}
-  }
+    };
 
-  // 3) Fallback terakhir: lewat CoinGecko id map (cara lama)
-  if (rem.length > 0) {
-    const cgIds = rem.filter(s => coinMapCG[s]).map(s => coinMapCG[s]);
-    if (cgIds.length > 0) {
+    // 1) Exchange top, URUT sesuai prioritas & berhenti begitu semua koin ketemu
+    //    (biasanya cukup 1 download, nggak 7 sekaligus). Binance > Bybit > OKX > Bitget > MEXC > KuCoin > Gate
+    for (const src of PRICE_SOURCES) {
+      if (!rem.length) break;
+      const map = await pullSource(src, rem);
+      if (map) { apply(map); updatePricesOnly(); }
+      await new Promise(r => setTimeout(r, 0));       // kasih napas ke UI antar exchange
+    }
+
+    // 1b) Tokocrypto: nggak ada endpoint semua-ticker, jadi dicek per koin (hanya sisa yang belum ketemu)
+    if (rem.length > 0 && rem.length <= 25) {
+      const toko = await Promise.allSettled(rem.map(async sym => {
+        const d = await fetchJSON(`https://www.tokocrypto.com/open/v1/market/trades?symbol=${sym}_USDT&limit=1`, 5000);
+        const row = (d.data?.list || d.data || [])[0];
+        const p = row ? +row.price : 0;
+        return p > 0 ? { sym, p } : null;
+      }));
+      const got = {};
+      toko.forEach(r => { if (r.status === 'fulfilled' && r.value) got[r.value.sym] = r.value.p; });
+      rem = rem.filter(sym => {
+        if (got[sym]) { prices[sym] = got[sym]; if (changes[sym] == null) changes[sym] = '0.00'; return false; }
+        return true;
+      });
+    }
+
+    // 2) Fallback CoinGecko /coins/markets by symbol (pilih market cap terbesar)
+    if (rem.length > 0) {
       try {
-        const d = await fetchJSON(`https://api.coingecko.com/api/v3/simple/price?ids=${cgIds.join(',')}&vs_currencies=usd&include_24hr_change=true`, 10000);
-        rem = rem.filter(s => {
-          const id = coinMapCG[s];
-          if (id && d[id]) {
-            prices[s] = d[id].usd;
-            changes[s] = d[id].usd_24h_change ? d[id].usd_24h_change.toFixed(2) : '0.00';
-            return false;
-          }
+        const d = await fetchJSON(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&symbols=${rem.map(x => x.toLowerCase()).join(',')}&price_change_percentage=24h`, 10000);
+        const best = {};
+        d.forEach(c => {
+          const S = c.symbol.toUpperCase();
+          const rank = c.market_cap_rank || 1e9;
+          if (!best[S] || rank < best[S].rank) best[S] = { rank, c };
+          if (c.image) logoCG[S] = logoCG[S] || c.image;
+        });
+        rem = rem.filter(sym => {
+          const b = best[sym];
+          if (b && b.c.current_price) { prices[sym] = b.c.current_price; changes[sym] = (b.c.price_change_percentage_24h ?? 0).toFixed(2); return false; }
           return true;
         });
       } catch(e) {}
     }
-  }
 
-  watchlist.forEach(s => {
-    if(s === 'IDR') { prices[s] = 1/usdToIdr; changes[s] = '0.00'; }
-    else if(STABLE.includes(s)) { prices[s] = 1; changes[s] = '0.00'; }
-    else if(!prices[s]) { prices[s] = 0; changes[s] = '0.00'; }
-  });
-  updatePricesOnly();
-  isFetching = false;
+    // 3) Fallback terakhir: lewat CoinGecko id map (cara lama)
+    if (rem.length > 0) {
+      const cgIds = rem.filter(s => coinMapCG[s]).map(s => coinMapCG[s]);
+      if (cgIds.length > 0) {
+        try {
+          const d = await fetchJSON(`https://api.coingecko.com/api/v3/simple/price?ids=${cgIds.join(',')}&vs_currencies=usd&include_24hr_change=true`, 10000);
+          rem = rem.filter(s => {
+            const id = coinMapCG[s];
+            if (id && d[id]) { prices[s] = d[id].usd; changes[s] = d[id].usd_24h_change ? d[id].usd_24h_change.toFixed(2) : '0.00'; return false; }
+            return true;
+          });
+        } catch(e) {}
+      }
+    }
+
+    watchlist.forEach(s => {
+      if(s === 'IDR') { prices[s] = 1/usdToIdr; changes[s] = '0.00'; }
+      else if(STABLE.includes(s)) { prices[s] = 1; changes[s] = '0.00'; }
+      else if(!prices[s]) { prices[s] = 0; changes[s] = '0.00'; }
+    });
+    updatePricesOnly();
+  } finally {
+    lastFetchAt = Date.now();
+    isFetching = false;                               // selalu dilepas, walau ada error
+  }
 }
 
 // ══════════════════════════════
@@ -2824,6 +2869,7 @@ function renderList(targetList) {
   }
 
   list.innerHTML = html;
+  if (!isGhost && typeof invalidateGhost === 'function') invalidateGhost();
   if (isGhost) list.querySelectorAll('.item-wrap').forEach(el => el.classList.add('instant'));
   else revealItems(list);
   updatePricesOnly();
@@ -3027,6 +3073,28 @@ function clearHold() {
 //  SWIPE TAB (mobile): halaman ngikutin jari secara real-time.
 //  Lepas jari: lewat ~30% layar / cukup kencang = pindah, kalau nggak = balik.
 // ══════════════════════════════
+// ── Ghost = tab tetangga yang di-render duluan (saat idle) supaya swipe langsung enteng ──
+let ghostEl = null, ghostTab = null, ghostTimer = null;
+function buildGhost(now) {
+  const pager = document.getElementById('list-pager');
+  if (!pager || !window.matchMedia('(max-width: 699px)').matches) return;
+  const neighbor = currentTab === 'exchange' ? 'coin' : 'exchange';
+  if (ghostEl && ghostEl.isConnected && ghostTab === neighbor) return;
+  if (ghostEl) ghostEl.remove();
+  const g = document.createElement('div');
+  g.className = 'list-ghost'; g.style.display = 'none';
+  pager.appendChild(g);
+  const prev = currentTab; currentTab = neighbor;
+  try { renderList(g); } finally { currentTab = prev; }
+  ghostEl = g; ghostTab = neighbor;
+}
+function invalidateGhost() {
+  if (ghostEl) { ghostEl.remove(); ghostEl = null; }
+  clearTimeout(ghostTimer);
+  const run = () => { try { buildGhost(); } catch (e) {} };
+  ghostTimer = setTimeout(() => (window.requestIdleCallback ? requestIdleCallback(run, { timeout: 2500 }) : run()), 400);
+}
+
 (function () {
   const mq = window.matchMedia('(max-width: 699px)');
   const SLIDE_MS = 280, EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
@@ -3042,13 +3110,13 @@ function clearHold() {
     st.sign = currentTab === 'exchange' ? 1 : -1;               // sisi tab tetangga (+1 kanan, -1 kiri)
     st.neighbor = currentTab === 'exchange' ? 'coin' : 'exchange';
 
-    const ghost = document.createElement('div');
-    ghost.className = 'list-ghost';
+    // pakai ghost yang sudah disiapkan saat idle (nggak ada render berat pas mulai geser)
+    let ghost = (ghostEl && ghostEl.isConnected && ghostTab === st.neighbor) ? ghostEl : null;
+    if (!ghost) { buildGhost(true); ghost = ghostEl; }
     ghost.style.left = (st.sign * 100) + '%';
-    pager.appendChild(ghost);
-    const prev = currentTab;
-    currentTab = st.neighbor;                                    // render tab tetangga ke "ghost"
-    try { renderList(ghost); } finally { currentTab = prev; }
+    ghost.style.display = '';
+    const prev = currentTab; currentTab = st.neighbor;           // segarkan angka harga di ghost
+    try { updatePricesOnly(); } finally { currentTab = prev; }
     st.ghost = ghost;
 
     pager.style.minHeight = Math.max(list.offsetHeight, ghost.offsetHeight) + 'px';
@@ -3061,11 +3129,15 @@ function clearHold() {
     st.ghost.style.transform = `translate3d(${dx}px,0,0)`;
   }
 
-  function cleanup() {
+  function cleanup(committed) {
     if (!st) return;
     const { list, ghost, pager } = st;
     list.style.transition = 'none'; list.style.transform = ''; list.style.willChange = '';
-    if (ghost) ghost.remove();
+    if (ghost) {
+      ghost.style.transition = 'none'; ghost.style.transform = ''; ghost.style.willChange = '';
+      if (committed) { ghost.remove(); if (ghostEl === ghost) ghostEl = null; }
+      else ghost.style.display = 'none';                         // batal: simpan lagi buat swipe berikutnya
+    }
     pager.style.minHeight = '';
     st = null; busy = false;
   }
@@ -3089,8 +3161,6 @@ function clearHold() {
       if (Math.abs(dx) > Math.abs(dy) * 1.2) { st.locked = 'h'; clearHold(); begin(); }
       else { st.locked = 'v'; return; }
     }
-    if (e.cancelable) e.preventDefault();
-
     // kecepatan jari (px/ms)
     const now = performance.now();
     if (now - st.lt > 0) st.vx = (t.clientX - st.lx) / (now - st.lt);
@@ -3102,7 +3172,7 @@ function clearHold() {
     else x = Math.max(-st.w, Math.min(st.w, dx));
     st.dx = x;
     setX(x);
-  }, { passive: false });
+  }, { passive: true });   // pasif: nggak nahan scroll
 
   function finish(cancelled) {
     if (!st || st.locked !== 'h' || busy) { if (!busy) st = null; return; }
@@ -3121,7 +3191,7 @@ function clearHold() {
         skipRevealOnce = true;
         switchTab(neighbor);          // render asli, list masih di luar layar
       }
-      cleanup();                      // langsung reset transform + buang ghost (1 frame, nggak kedip)
+      cleanup(commit);                // langsung reset transform + buang ghost (1 frame, nggak kedip)
     }, SLIDE_MS + 20);
   }
   document.addEventListener('touchend', () => finish(false), { passive: true });
