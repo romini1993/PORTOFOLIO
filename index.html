@@ -52,7 +52,7 @@
     /* STICKY TOP BAR — dimasukkan ke dalam summary-wrap, tidak sticky sendiri */
     .top-bar {
       background: transparent;
-      padding: 10px 16px 4px;
+      padding: 10px var(--gutter) 4px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -102,7 +102,7 @@
       justify-content: space-between;
       gap: 12px;
       box-shadow: 0 0 30px rgba(124,106,247,0.08), inset 0 1px 0 rgba(255,255,255,0.06);
-      margin: 8px 16px 0;
+      margin: 8px var(--gutter) 0;
     }
 
     .summary-left { flex: 1; min-width: 0; }
@@ -150,7 +150,7 @@
 
     /* CONTROLS in sticky area */
     .controls-wrap {
-      padding: 0 16px 10px;
+      padding: 0 var(--gutter) 10px;
       background: rgba(10,10,15,0.95);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
@@ -226,7 +226,7 @@
 
     /* MAIN LIST */
     #main-list {
-      padding: 6px 16px 20px;
+      padding: 6px var(--gutter) 20px;
       display: flex;
       flex-direction: column;
       gap: 6px;
@@ -526,7 +526,7 @@
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border-top: 1px solid var(--border);
-      padding: 10px 16px;
+      padding: 10px var(--gutter);
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -807,7 +807,7 @@
         flex: 0 0 100%;
         min-width: 0;
         box-sizing: border-box;
-        padding: 6px 16px 20px;
+        padding: 6px var(--gutter) 20px;
         gap: 6px;
         align-self: flex-start;            /* tiap halaman setinggi isinya sendiri */
         scroll-snap-align: start;
@@ -1313,7 +1313,15 @@
 
     /* ADD EXCHANGE MODAL - simple input */
     .add-ex-modal { gap: 14px; }
-  </style>
+  
+    /* ═══════════ JARAK KIRI-KANAN (HP lebih mepet, tetap ada napas) ═══════════ */
+    :root { --gutter: 16px; }
+    @media (max-width: 699px) { :root { --gutter: 8px; } }
+
+    /* ═══════════ SCROLLBAR DISEMBUNYIKAN (tetap bisa di-scroll) ═══════════ */
+    html, body, * { scrollbar-width: none !important; -ms-overflow-style: none !important; }
+    *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+</style>
 </head>
 <body>
 
