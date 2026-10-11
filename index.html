@@ -2487,6 +2487,13 @@ function getFilterQuery() {
   return (document.getElementById(isDesktop ? 'filter-desk' : 'filter-input')?.value || '').toUpperCase();
 }
 
+// Saldo (amount + staking) satu koin di SATU exchange/sumber saja
+function getCoinBalanceAt(sym, src) {
+  const d = balances[sym]?.[src];
+  const v = (d && typeof d === 'object') ? (parseFloat(d.amount || 0) + parseFloat(d.staking || 0)) : parseFloat(d || 0);
+  return isFinite(v) ? v : 0;
+}
+
 function getCoinTotal(sym) {
   let t = 0;
   (coinSources[sym] || []).forEach(src => {
@@ -2798,7 +2805,7 @@ function renderListInto(list, isActive) {
       let subKoin = watchlist.filter(s => coinSources[s]?.includes(ex.name));
 
       if(sortType === 'name') subKoin.sort((a,b) => a.localeCompare(b));
-      else if(sortType === 'value') subKoin.sort((a,b) => (getCoinTotal(b)*(prices[b]||0)) - (getCoinTotal(a)*(prices[a]||0)));
+      else if(sortType === 'value') subKoin.sort((a,b) => (getCoinBalanceAt(b, ex.name)*(prices[b]||0)) - (getCoinBalanceAt(a, ex.name)*(prices[a]||0)));
       else if(sortType === 'gainers') subKoin.sort((a,b) => parseFloat(changes[b]||-999) - parseFloat(changes[a]||-999));
 
       const isOpen = expandedItem === ex.name;
@@ -2877,6 +2884,8 @@ function renderListInto(list, isActive) {
 
     filtered.forEach((s, sIdx) => {
       const subSrc = [...(coinSources[s]||[])];
+      if (sortType === 'name') subSrc.sort((x, y) => x.localeCompare(y));
+      else if (sortType === 'value') subSrc.sort((x, y) => getCoinBalanceAt(s, y) - getCoinBalanceAt(s, x));
       const isOpen = expandedItem === s;
       const p = prices[s] || 0;
       const c = changes[s] || '0.00';
@@ -3101,21 +3110,58 @@ function handleFileSelect(event) {
 }
 
 function exportToExcel(fileName) {
-  let csv = 'sep=,\nExchange,Koin,Amount,Staking,Harga USD,Total USD\n';
+  // Excel/Sheets membaca angka sesuai bahasa perangkat: Indonesia/Eropa = desimal KOMA + pemisah kolom TITIK-KOMA,
+  // Inggris = desimal TITIK + pemisah KOMA. Kita ikutin perangkat supaya angka nggak salah baca jadi tanggal/teks.
+  const commaLocale = (1.5).toLocaleString().indexOf(',') !== -1;
+  const SEP = commaLocale ? ';' : ',';
+
+  // angka: maksimal dp desimal, nol di belakang dibuang, tanpa notasi ilmiah (1e-7) & tanpa sisa floating (0.30000000000000004)
+  const num = (v, dp) => {
+    v = isFinite(v) ? v : 0;
+    let t = v.toFixed(dp);
+    if (t.indexOf('.') !== -1) t = t.replace(/0+$/, '').replace(/\.$/, '');
+    if (t === '-0') t = '0';
+    return commaLocale ? t.replace('.', ',') : t;
+  };
+  const money = v => { let t = (isFinite(v) ? v : 0).toFixed(2); if (t === '-0.00') t = '0.00'; return commaLocale ? t.replace('.', ',') : t; };
+  // teks: dikutip, tanda kutip di-escape, dan cegah "formula injection" (=, +, -, @ di awal)
+  const txt = v => {
+    let t = String(v == null ? '' : v);
+    if (/^[=+\-@\t\r]/.test(t)) t = "'" + t;
+    return '"' + t.replace(/"/g, '""') + '"';
+  };
+
+  const rows = [['Exchange', 'Koin', 'Amount', 'Staking', 'Harga USD', 'Total USD'].map(txt).join(SEP)];
   allExchanges.forEach(ex => {
-    watchlist.forEach(s => {
-      if(coinSources[s]?.includes(ex)) {
-        const d = balances[s]?.[ex];
-        let am = (typeof d === 'object') ? parseFloat(d.amount||0) : parseFloat(d||0);
-        let st = (typeof d === 'object') ? parseFloat(d.staking||0) : 0;
-        if(am+st > 0) csv += `${ex},${s},${am},${st},${prices[s]||0},${((am+st)*(prices[s]||0)).toFixed(2)}\n`;
-      }
+    watchlist.forEach(sym => {
+      if (!coinSources[sym]?.includes(ex)) return;
+      const d = balances[sym]?.[ex];
+      const am = (d && typeof d === 'object') ? (parseFloat(d.amount || 0) || 0) : (parseFloat(d || 0) || 0);
+      const st = (d && typeof d === 'object') ? (parseFloat(d.staking || 0) || 0) : 0;
+      if (am + st <= 0) return;
+      const price = prices[sym] || 0;
+      rows.push([
+        txt(ex),
+        txt(sym),
+        num(am, 8),
+        num(st, 8),
+        num(price, price < 1 ? 8 : 4),
+        money((am + st) * price)
+      ].join(SEP));
     });
   });
+
+  // BOM supaya huruf/emoji nggak rusak di Excel; baris akhir CRLF
+  const csv = '\uFEFF' + rows.join('\r\n') + '\r\n';
+  const safeName = (String(fileName || 'PORTO').trim().replace(/[\\/:*?"<>|]+/g, '_') || 'PORTO').toUpperCase();
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-  a.download = `${fileName.toUpperCase().trim()}.csv`;
+  a.href = url;
+  a.download = `${safeName}.csv`;
+  document.body.appendChild(a);
   a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
   showToast('CSV Berhasil Disimpan!');
 }
 
