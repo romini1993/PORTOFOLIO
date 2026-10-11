@@ -114,6 +114,7 @@
       text-transform: uppercase;
       margin-bottom: 4px;
     }
+    .summary-idr, .summary-usd { font-variant-numeric: tabular-nums; }
     .summary-idr {
       font-family: var(--mono);
       font-size: 22px;
@@ -2504,6 +2505,56 @@ function getCoinTotal(sym) {
   return t;
 }
 
+// ══════════════════════════════
+//  ANIMASI ANGKA (count-up) — sama kayak app trade
+// ══════════════════════════════
+const REDUCED_MOTION = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+function animateCount(el, from, to, fmt, ms) {
+  cancelAnimationFrame(el._cuRaf);
+  el._cuCur = from;
+  el.textContent = fmt(from);
+  if (REDUCED_MOTION || from === to) { el._cuCur = to; el.textContent = fmt(to); return; }
+  const dur = ms || 1300, t0 = performance.now();
+  const step = t => {
+    const k = Math.max(0, Math.min(1, (t - t0) / dur));   // max(0): timestamp frame bisa lebih awal dari t0 -> jangan sampai minus
+    const eased = 1 - Math.pow(1 - k, 4);                // easeOutQuart: cepat di awal, melambat mendarat
+    el._cuCur = from + (to - from) * eased;
+    el.textContent = fmt(el._cuCur);
+    if (k < 1) el._cuRaf = requestAnimationFrame(step);
+    else { el._cuCur = to; el.textContent = fmt(to); }
+  };
+  el._cuRaf = requestAnimationFrame(step);
+}
+
+// Total saldo: render pertama & ganti mata uang (IDR <-> USD) = hitung dari 0.
+// Data harga baru di mata uang yang sama = bergerak dari angka yang lagi tampil.
+let shownTotals = null;   // { view, usd, kurs }
+function renderTotals(totalUsd, cur) {
+  const primary   = ['total-all-idr', 'total-idr-desk'];
+  const secondary = ['total-all-usd', 'total-usd-desk'];
+  const fmtP = cur === 'USD' ? fmtUSD : (v => fmtIDR(v * usdToIdr));     // kurs dibaca ulang tiap frame
+  const fmtS = cur === 'USD' ? (v => fmtIDR(v * usdToIdr)) : fmtUSD;
+  const sameView = !!shownTotals && shownTotals.view === cur;
+
+  if (sameView && Math.abs(shownTotals.usd - totalUsd) < 1e-9) {
+    if (shownTotals.kurs !== usdToIdr) {                                   // cuma kurs yang berubah: tanpa animasi
+      primary.forEach(id => { const el = document.getElementById(id); if (el && !el._cuRaf) el.textContent = fmtP(totalUsd); });
+      secondary.forEach(id => { const el = document.getElementById(id); if (el && !el._cuRaf) el.textContent = fmtS(totalUsd); });
+      shownTotals.kurs = usdToIdr;
+    }
+    return;
+  }
+  const ms = sameView ? 800 : 1300;
+  const run = (ids, fmt) => ids.forEach(id => {
+    const el = document.getElementById(id); if (!el) return;
+    const from = sameView ? (typeof el._cuCur === 'number' ? el._cuCur : shownTotals.usd) : 0;
+    animateCount(el, from, totalUsd, fmt, ms);
+  });
+  run(primary, fmtP);
+  run(secondary, fmtS);
+  shownTotals = { view: cur, usd: totalUsd, kurs: usdToIdr };
+}
+
 function fmtUSD(v) {
   if(v >= 1000000) return `$${(v/1000000).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}M`;
   if(v >= 1000) return `$${v.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0})}`;
@@ -2571,11 +2622,11 @@ function updatePricesOnly() {
   if (pagerMode()) {                                       // dua halaman: segarkan keduanya, terakhir tab aktif (biar total & badge benar)
     const real = currentTab;
     currentTab = real === 'exchange' ? 'coin' : 'exchange';
-    try { updatePricesCore(); } finally { currentTab = real; }
+    try { updatePricesCore(true); } finally { currentTab = real; }   // true = jangan sentuh total (biar animasi angka nggak dobel)
   }
-  updatePricesCore();
+  updatePricesCore(false);
 }
-function updatePricesCore() {
+function updatePricesCore(skipTotals) {
   const cur = getCurrencyView();
   let totalUsd = 0;
 
@@ -2638,8 +2689,7 @@ function updatePricesCore() {
   // Slot besar (id -idr / -desk) & slot kecil (id -usd) tuker isi sesuai currency yang lagi dipilih
   const primaryTotal = cur === 'USD' ? usdTotal : idrTotal;
   const secondaryTotal = cur === 'USD' ? idrTotal : usdTotal;
-  ['total-all-idr','total-idr-desk'].forEach(id => { const el = document.getElementById(id); if(el) el.innerText = primaryTotal; });
-  ['total-all-usd','total-usd-desk'].forEach(id => { const el = document.getElementById(id); if(el) el.innerText = secondaryTotal; });
+  if (!skipTotals) renderTotals(totalUsd, cur);
 
   // asset count badge
   const cnt = currentTab === 'exchange' ? allExchanges.length : watchlist.length;
@@ -3173,7 +3223,7 @@ function exportToExcel(fileName) {
   const XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
   const sheet = `${XML}<worksheet ${NS}><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>`
     + `<cols><col min="1" max="1" width="20" customWidth="1"/><col min="2" max="2" width="10" customWidth="1"/><col min="3" max="4" width="18" customWidth="1"/><col min="5" max="5" width="14" customWidth="1"/><col min="6" max="6" width="16" customWidth="1"/></cols>`
-    + `<sheetData>${rowsXml}</sheetData></worksheet>`;
+    + `<sheetData>${rowsXml}</sheetData><autoFilter ref="A1:F${r}"/></worksheet>`;
   const styles = `${XML}<styleSheet ${NS}><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>`
     + `<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE8E6FF"/><bgColor indexed="64"/></patternFill></fill></fills>`
     + `<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>`
@@ -3184,7 +3234,7 @@ function exportToExcel(fileName) {
   const files = [
     { name: '[Content_Types].xml', data: `${XML}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>` },
     { name: '_rels/.rels', data: `${XML}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${REL}/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
-    { name: 'xl/workbook.xml', data: `${XML}<workbook ${NS} xmlns:r="${REL}"><sheets><sheet name="Porto" sheetId="1" r:id="rId1"/></sheets></workbook>` },
+    { name: 'xl/workbook.xml', data: `${XML}<workbook ${NS} xmlns:r="${REL}"><sheets><sheet name="Porto" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">Porto!$A$1:$F$${r}</definedName></definedNames></workbook>` },
     { name: 'xl/_rels/workbook.xml.rels', data: `${XML}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${REL}/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="${REL}/styles" Target="styles.xml"/></Relationships>` },
     { name: 'xl/styles.xml', data: styles },
     { name: 'xl/worksheets/sheet1.xml', data: sheet }
@@ -3430,4 +3480,4 @@ document.addEventListener('keydown', e => {
 }, true);
 </script>
 </body>
-</html>
+</html>      
