@@ -786,13 +786,33 @@
       .toast-pill { transition-duration: .01ms !important; }
     }
 
-    /* ═══════════ PAGER LIST (swipe tab ngikutin jari) ═══════════ */
-    html, body { touch-action: pan-y pinch-zoom; overscroll-behavior-x: none; }   /* scroll vertikal native & mulus; horizontal buat swipe tab */
-    #list-pager { position: relative; overflow-x: clip; touch-action: pan-y pinch-zoom; }
-    .list-ghost {
-      position: absolute; top: 0; width: 100%; box-sizing: border-box;
-      padding: 6px 16px 20px; display: flex; flex-direction: column; gap: 6px;
-      pointer-events: none;
+    /* ═══════════ PAGER TAB (HP): dua halaman berjajar + scroll-snap native, ngikutin jari langsung ═══════════ */
+    #list-pager { display: block; }
+    #main-list-b { display: none; }
+    @media (max-width: 699px) {
+      #list-pager {
+        display: flex;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scroll-snap-type: x mandatory;
+        overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+      #list-pager::-webkit-scrollbar { width: 0; height: 0; display: none; }
+      #list-pager > #main-list, #list-pager > #main-list-b {
+        display: flex;
+        flex-direction: column;
+        flex: 0 0 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        padding: 6px 16px 20px;
+        gap: 6px;
+        align-self: flex-start;            /* tiap halaman setinggi isinya sendiri */
+        scroll-snap-align: start;
+        scroll-snap-stop: always;          /* satu geseran = satu halaman */
+      }
     }
 
     /* TOAST (lama, nggak dipakai lagi) */
@@ -1451,7 +1471,7 @@
     </div>
 
     <!-- LIST -->
-    <div id="list-pager"><div id="main-list"></div></div>
+    <div id="list-pager"><div id="main-list"></div><div id="main-list-b"></div></div>
 
     <!-- MOBILE: Bottom Bar -->
     <div class="bottom-bar">
@@ -2532,6 +2552,14 @@ function showToast(message, type) {
 //  UPDATE PRICES (no re-render)
 // ══════════════════════════════
 function updatePricesOnly() {
+  if (pagerMode()) {                                       // dua halaman: segarkan keduanya, terakhir tab aktif (biar total & badge benar)
+    const real = currentTab;
+    currentTab = real === 'exchange' ? 'coin' : 'exchange';
+    try { updatePricesCore(); } finally { currentTab = real; }
+  }
+  updatePricesCore();
+}
+function updatePricesCore() {
   const cur = getCurrencyView();
   let totalUsd = 0;
 
@@ -2700,9 +2728,37 @@ function revealItems(list) {
   });
 }
 
-function renderList(targetList) {
-  const isGhost = !!targetList;
-  const list = targetList || document.getElementById('main-list');
+// ── Mode pager (HP): Exchange & Coin dua-duanya selalu ada di DOM, berjajar kiri-kanan ──
+const pagerMq = window.matchMedia('(max-width: 699px)');
+const pagerMode = () => pagerMq.matches;
+const pagerEls = () => ({ pager: document.getElementById('list-pager'), a: document.getElementById('main-list'), b: document.getElementById('main-list-b') });
+let renderOtherTimer = null;
+
+function renderPage(list, tab) {
+  const prev = currentTab; currentTab = tab;               // body render baca currentTab
+  try { renderListInto(list, prev === tab); } finally { currentTab = prev; }
+}
+
+function renderList() {
+  const { a, b } = pagerEls();
+  clearTimeout(renderOtherTimer);
+  if (!pagerMode()) {                                      // desktop: satu daftar, ikut tab aktif
+    b.innerHTML = '';
+    renderPage(a, currentTab);
+    updatePricesOnly();
+    return;
+  }
+  const first  = currentTab === 'coin' ? ['coin', b] : ['exchange', a];
+  const second = currentTab === 'coin' ? ['exchange', a] : ['coin', b];
+  renderPage(first[1], first[0]);                          // halaman yang lagi dilihat: sekarang juga
+  updatePricesOnly(); fitPagerHeight();
+  renderOtherTimer = setTimeout(() => {                    // halaman satunya: nyusul sebentar (nggak nahan UI)
+    renderPage(second[1], second[0]);
+    updatePricesOnly(); fitPagerHeight();
+  }, 60);
+}
+
+function renderListInto(list, isActive) {
   const query = getFilterQuery();
   const sortType = getSortType();
   let html = '';
@@ -2882,10 +2938,9 @@ function renderList(targetList) {
   }
 
   list.innerHTML = html;
-  if (!isGhost && typeof invalidateGhost === 'function') invalidateGhost();
-  if (isGhost) list.querySelectorAll('.item-wrap').forEach(el => el.classList.add('instant'));
+  // halaman yang lagi nggak dilihat: langsung tampil (nggak ada animasi reveal yang nyangkut di luar layar)
+  if (!isActive) list.querySelectorAll('.item-wrap').forEach(el => { el.classList.add('instant'); });
   else revealItems(list);
-  updatePricesOnly();
 
   // Disable scroll-wheel on all number inputs
   list.querySelectorAll('input[type=number]').forEach(inp => {
@@ -2896,7 +2951,25 @@ function renderList(targetList) {
 // ══════════════════════════════
 //  ACTIONS
 // ══════════════════════════════
+// Update tampilan tab (tombol, label, badge) TANPA render ulang
+function applyTabUI(tab) {
+  currentTab = tab;
+  ['tab-ex','tab-ex-d'].forEach(id => { const el = document.getElementById(id); if(el) el.classList.toggle('active', tab==='exchange'); });
+  ['tab-coin','tab-coin-d'].forEach(id => { const el = document.getElementById(id); if(el) el.classList.toggle('active', tab==='coin'); });
+  const label = tab === 'exchange' ? '+ Tambah Exchange' : '+ Tambah Coin';
+  ['global-add-btn-desk','global-add-btn-mob'].forEach(id => { const el = document.getElementById(id); if(el) el.innerText = label; });
+  const cnt = tab === 'exchange' ? allExchanges.length : watchlist.length;
+  ['asset-count-badge', 'asset-count-badge-desk'].forEach(id => { const el = document.getElementById(id); if(el) el.innerText = `${cnt} ${tab === 'exchange' ? 'exchange' : 'aset'}`; });
+}
+
 function switchTab(tab) {
+  if (pagerMode()) {                                       // HP: geser halaman, nggak render ulang
+    applyTabUI(tab);
+    fitPagerHeight();
+    const { pager } = pagerEls();
+    animatePagerTo(pager, (tab === 'coin' ? 1 : 0) * pager.clientWidth, 280);
+    return;
+  }
   currentTab = tab;
   ['tab-ex','tab-ex-d'].forEach(id => { const el = document.getElementById(id); if(el) el.classList.toggle('active', tab==='exchange'); });
   ['tab-coin','tab-coin-d'].forEach(id => { const el = document.getElementById(id); if(el) el.classList.toggle('active', tab==='coin'); });
@@ -3057,16 +3130,21 @@ function renameProcess(oldVal, newVal, type) {
 // HOLD (long press) -> isian kuning jalan ke kanan, penuh = popup hapus/edit
 const HOLD_MS = 600;
 let noClickUntil = 0;   // blok klik nyasar habis long-press / swipe
+const HOLD_SHOW_MS = 110;   // kuning baru muncul setelah jari "diam" sebentar -> swipe nggak memicu kuning
+let holdShowTimer = null;
 function startHold(event, id, type) {
   if (event.type === 'mousedown' && event.button !== 0) return;   // klik kiri saja
   clearHold();
   const touch = event.touches ? event.touches[0] : event;
   startX = touch.clientX; startY = touch.clientY;
   const el = event.currentTarget;
-  if (el && el.classList) {
-    el.style.setProperty('--hold-ms', HOLD_MS + 'ms');
-    el.classList.add('holding');
-  }
+  holdShowTimer = setTimeout(() => {
+    holdShowTimer = null;
+    if (el && el.classList) {
+      el.style.setProperty('--hold-ms', (HOLD_MS - HOLD_SHOW_MS) + 'ms');   // penuh tepat di HOLD_MS
+      el.classList.add('holding');
+    }
+  }, HOLD_SHOW_MS);
   holdTimer = setTimeout(() => {
     holdTimer = null;
     if (el && el.classList) el.classList.remove('holding');
@@ -3076,9 +3154,10 @@ function startHold(event, id, type) {
     else confirmModal(`HAPUS ${id}?`, 'delete', () => { watchlist = watchlist.filter(s => s !== id); delete balances[id]; delete coinSources[id]; saveAll(); renderList(); showToast(`${id} dihapus`, 'error'); }, () => renamePopup(id, 'coin'));
   }, HOLD_MS);
 }
-function moveHold(event) { if(!holdTimer) return; const touch = event.touches ? event.touches[0] : event; if(Math.abs(touch.clientX-startX)>15 || Math.abs(touch.clientY-startY)>15) clearHold(); }
+function moveHold(event) { if(!holdTimer) return; const touch = event.touches ? event.touches[0] : event; if(Math.abs(touch.clientX-startX)>6 || Math.abs(touch.clientY-startY)>6) clearHold(); }
 function clearHold() {
   clearTimeout(holdTimer); holdTimer = null;
+  clearTimeout(holdShowTimer); holdShowTimer = null;
   document.querySelectorAll('.hold-target.holding').forEach(el => el.classList.remove('holding'));
 }
 
@@ -3086,135 +3165,90 @@ function clearHold() {
 //  SWIPE TAB (mobile): halaman ngikutin jari secara real-time.
 //  Lepas jari: lewat ~30% layar / cukup kencang = pindah, kalau nggak = balik.
 // ══════════════════════════════
-// ── Ghost = tab tetangga yang di-render duluan (saat idle) supaya swipe langsung enteng ──
-let ghostEl = null, ghostTab = null, ghostTimer = null;
-function buildGhost(now) {
-  const pager = document.getElementById('list-pager');
-  if (!pager || !window.matchMedia('(max-width: 699px)').matches) return;
-  const neighbor = currentTab === 'exchange' ? 'coin' : 'exchange';
-  if (ghostEl && ghostEl.isConnected && ghostTab === neighbor) return;
-  if (ghostEl) ghostEl.remove();
-  const g = document.createElement('div');
-  g.className = 'list-ghost'; g.style.display = 'none';
-  pager.appendChild(g);
-  const prev = currentTab; currentTab = neighbor;
-  try { renderList(g); } finally { currentTab = prev; }
-  ghostEl = g; ghostTab = neighbor;
-}
-function invalidateGhost() {
-  if (ghostEl) { ghostEl.remove(); ghostEl = null; }
-  clearTimeout(ghostTimer);
-  const run = () => { try { buildGhost(); } catch (e) {} };
-  ghostTimer = setTimeout(() => (window.requestIdleCallback ? requestIdleCallback(run, { timeout: 2500 }) : run()), 400);
+// ══════════════════════════════
+//  PAGER TAB (HP) — pola sama kayak app trade:
+//  Exchange & Coin berjajar, scroll-snap native => halaman ngikutin jari LANGSUNG (real-time),
+//  tab aktif ganti di tengah geseran, nggak nunggu jari lepas.
+// ══════════════════════════════
+let pagerLock = false;        // true selama pager digeser lewat klik tab / animasi
+
+function fitPagerHeight() {
+  const { pager, a, b } = pagerEls();
+  if (!pager) return;
+  if (!pagerMode()) { pager.style.height = ''; return; }
+  const page = currentTab === 'coin' ? b : a;               // tinggi pager = tinggi halaman aktif
+  pager.style.height = page.offsetHeight + 'px';
 }
 
-(function () {
-  const mq = window.matchMedia('(max-width: 699px)');
-  const SLIDE_MS = 280, EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
-  let st = null, busy = false;
+function animatePagerTo(pager, left, ms) {
+  cancelAnimationFrame(pager._raf);
+  const from = pager.scrollLeft, dist = left - from;
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!dist || reduced) { pager.scrollLeft = left; return; }
+  pagerLock = true;
+  pager.style.scrollSnapType = 'none';                      // snap dimatikan selama animasi biar nggak berebut
+  const t0 = performance.now();
+  const step = now => {
+    const k = Math.min(1, (now - t0) / ms);
+    pager.scrollLeft = from + dist * (1 - Math.pow(1 - k, 3));   // easeOutCubic
+    if (k < 1) pager._raf = requestAnimationFrame(step);
+    else { pager.style.scrollSnapType = ''; pagerLock = false; }
+  };
+  pager._raf = requestAnimationFrame(step);
+}
 
-  const blocked = el => !!(el && el.closest && el.closest('input, textarea, select, .modal-overlay, .coin-search-overlay, .ex-search-overlay'));
-  const overlayOpen = () => ['modal-overlay', 'coin-search-overlay'].some(id => document.getElementById(id)?.classList.contains('active'));
+(function initPager() {
+  const { pager, a, b } = pagerEls();
+  if (!pager) return;
+  let raf = 0;
 
-  function begin() {
-    const pager = document.getElementById('list-pager');
-    const list = document.getElementById('main-list');
-    st.pager = pager; st.list = list; st.w = pager.clientWidth || window.innerWidth;
-    st.sign = currentTab === 'exchange' ? 1 : -1;               // sisi tab tetangga (+1 kanan, -1 kiri)
-    st.neighbor = currentTab === 'exchange' ? 'coin' : 'exchange';
-
-    // pakai ghost yang sudah disiapkan saat idle (nggak ada render berat pas mulai geser)
-    let ghost = (ghostEl && ghostEl.isConnected && ghostTab === st.neighbor) ? ghostEl : null;
-    if (!ghost) { buildGhost(true); ghost = ghostEl; }
-    ghost.style.left = (st.sign * 100) + '%';
-    ghost.style.display = '';
-    const prev = currentTab; currentTab = st.neighbor;           // segarkan angka harga di ghost
-    try { updatePricesOnly(); } finally { currentTab = prev; }
-    st.ghost = ghost;
-
-    pager.style.minHeight = Math.max(list.offsetHeight, ghost.offsetHeight) + 'px';
-    list.style.transition = ghost.style.transition = 'none';
-    list.style.willChange = ghost.style.willChange = 'transform';
-  }
-
-  function setX(dx) {
-    st.list.style.transform = `translate3d(${dx}px,0,0)`;
-    st.ghost.style.transform = `translate3d(${dx}px,0,0)`;
-  }
-
-  function cleanup(committed) {
-    if (!st) return;
-    const { list, ghost, pager } = st;
-    list.style.transition = 'none'; list.style.transform = ''; list.style.willChange = '';
-    if (ghost) {
-      ghost.style.transition = 'none'; ghost.style.transform = ''; ghost.style.willChange = '';
-      if (committed) { ghost.remove(); if (ghostEl === ghost) ghostEl = null; }
-      else ghost.style.display = 'none';                         // batal: simpan lagi buat swipe berikutnya
-    }
-    pager.style.minHeight = '';
-    st = null; busy = false;
-  }
-
-  document.addEventListener('touchstart', e => {
-    if (busy) return;
-    st = null;
-    if (!mq.matches || e.touches.length !== 1 || blocked(e.target) || overlayOpen()) return;
-    const t = e.touches[0];
-    if (t.clientX < 20 || t.clientX > window.innerWidth - 20) return;   // tepi layar = gesture back sistem
-    st = { x: t.clientX, y: t.clientY, locked: null, vx: 0, lx: t.clientX, lt: performance.now(), dx: 0 };
+  pager.addEventListener('touchstart', () => {              // jari menyentuh lagi: batalin animasi klik tab
+    cancelAnimationFrame(pager._raf);
+    pager.style.scrollSnapType = '';
+    pagerLock = false;
   }, { passive: true });
 
-  document.addEventListener('touchmove', e => {
-    if (!st || busy || st.locked === 'v') return;
-    const t = e.touches[0];
-    const dx = t.clientX - st.x, dy = t.clientY - st.y;
+  pager.addEventListener('scroll', () => {
+    if (!pagerMode()) return;
+    if (holdTimer || holdShowTimer) clearHold();            // lagi geser = bukan tahan lama
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      if (pagerLock) return;
+      const p = pager.scrollLeft / (pager.clientWidth || 1);
+      const tab = p >= 0.5 ? 'coin' : 'exchange';           // lewat setengah = tab aktif pindah (di tengah geseran)
+      if (tab !== currentTab) { applyTabUI(tab); fitPagerHeight(); }
+    });
+  }, { passive: true });
 
-    if (!st.locked) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-      if (Math.abs(dx) > Math.abs(dy) * 1.2) { st.locked = 'h'; clearHold(); begin(); }
-      else { st.locked = 'v'; return; }
-    }
-    // kecepatan jari (px/ms)
-    const now = performance.now();
-    if (now - st.lt > 0) st.vx = (t.clientX - st.lx) / (now - st.lt);
-    st.lx = t.clientX; st.lt = now;
-
-    // gerak ke arah tab tetangga = ngikutin jari; arah sebaliknya = karet (ditahan)
-    let x = dx;
-    if (dx * st.sign > 0) x = dx * 0.2;
-    else x = Math.max(-st.w, Math.min(st.w, dx));
-    st.dx = x;
-    setX(x);
-  }, { passive: true });   // pasif: nggak nahan scroll
-
-  function finish(cancelled) {
-    if (!st || st.locked !== 'h' || busy) { if (!busy) st = null; return; }
-    const { list, ghost, w, sign, neighbor } = st;
-    const toward = st.dx * sign < 0;
-    const fast = toward && Math.abs(st.vx) > 0.45 && (st.vx * sign < 0);
-    const commit = !cancelled && toward && (Math.abs(st.dx) > w * 0.3 || fast);
-
-    busy = true; noClickUntil = Date.now() + 400;
-    const tr = `transform ${SLIDE_MS}ms ${EASE}`;
-    list.style.transition = ghost.style.transition = tr;
-    setX(commit ? -sign * w : 0);
-
-    setTimeout(() => {
-      if (commit) {
-        skipRevealOnce = true;
-        switchTab(neighbor);          // render asli, list masih di luar layar
-      }
-      cleanup(commit);                // langsung reset transform + buang ghost (1 frame, nggak kedip)
-    }, SLIDE_MS + 20);
+  // tinggi pager selalu ngikutin isi halaman aktif (item dibuka/ditutup, tambah/hapus, dll)
+  if ('ResizeObserver' in window) {
+    const ro = new ResizeObserver(() => fitPagerHeight());
+    ro.observe(a); ro.observe(b);
   }
-  document.addEventListener('touchend', () => finish(false), { passive: true });
-  document.addEventListener('touchcancel', () => finish(true), { passive: true });
 
-  // habis swipe jangan ikut kebuka/ketutup item karena "klik" nyasar
-  document.addEventListener('click', e => {
-    if (e.isTrusted && Date.now() < noClickUntil) { e.stopPropagation(); e.preventDefault(); }   // hanya klik asli dari jari; klik dari kode (Enter) lolos
-  }, true);
+  // rotasi / ganti ukuran / lewat batas desktop<->HP
+  const onMode = () => {
+    renderList();
+    requestAnimationFrame(() => {
+      pager.style.scrollSnapType = 'none';
+      pager.scrollLeft = pagerMode() && currentTab === 'coin' ? pager.clientWidth : 0;
+      requestAnimationFrame(() => { pager.style.scrollSnapType = ''; fitPagerHeight(); });
+    });
+  };
+  if (pagerMq.addEventListener) pagerMq.addEventListener('change', onMode); else pagerMq.addListener(onMode);
+  window.addEventListener('resize', () => {
+    if (!pagerMode()) return;
+    pager.style.scrollSnapType = 'none';
+    pager.scrollLeft = (currentTab === 'coin' ? 1 : 0) * pager.clientWidth;
+    requestAnimationFrame(() => { pager.style.scrollSnapType = ''; fitPagerHeight(); });
+  });
 })();
+
+// habis tahan lama jangan ikut ke-klik (item kebuka / popup ketutup)
+document.addEventListener('click', e => {
+  if (e.isTrusted && Date.now() < noClickUntil) { e.stopPropagation(); e.preventDefault(); }
+}, true);
 
 // ══════════════════════════════
 //  KEYBOARD: ENTER = eksekusi, ESC = batal (semua popup)
