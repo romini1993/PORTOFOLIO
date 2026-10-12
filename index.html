@@ -1359,8 +1359,17 @@
     .tg-sym { font-weight: 700; font-size: 13px; letter-spacing: .01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .tg-price { font-family: var(--mono); font-size: 10.5px; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
     .tg-pct { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--c); line-height: 1.15; font-variant-numeric: tabular-nums; }
-    .item-wrap.tg-flash { animation: tgFlash 1.5s ease; }
-    @keyframes tgFlash { 0%,100% { box-shadow: 0 0 0 0 rgba(124,106,247,0); } 25%,65% { box-shadow: 0 0 0 2px var(--accent), 0 0 24px -4px var(--accent); } }
+    /* kedip 3x (terang-redup-terang-redup-terang) ~2,6 detik; mulai sedikit telat supaya pas koin sudah sampai di layar */
+    .item-wrap.tg-flash { animation: tgFlash 2.6s ease-in-out .35s both; }
+    @keyframes tgFlash {
+      0%   { box-shadow: 0 0 0 0 rgba(124,106,247,0); }
+      10%  { box-shadow: 0 0 0 2px var(--accent), 0 0 30px 2px rgba(124,106,247,.7); }
+      26%  { box-shadow: 0 0 0 1px rgba(124,106,247,.3), 0 0 8px rgba(124,106,247,.15); }
+      42%  { box-shadow: 0 0 0 2px var(--accent), 0 0 30px 2px rgba(124,106,247,.7); }
+      58%  { box-shadow: 0 0 0 1px rgba(124,106,247,.3), 0 0 8px rgba(124,106,247,.15); }
+      74%  { box-shadow: 0 0 0 2px var(--accent), 0 0 30px 2px rgba(124,106,247,.7); }
+      100% { box-shadow: 0 0 0 0 rgba(124,106,247,0); }
+    }
     @media (prefers-reduced-motion: reduce) { .tg-dot, .tg-card.enter, .item-wrap.tg-flash { animation: none !important; } }
 
     /* Top gainer desktop: bisa diklik */
@@ -2663,7 +2672,7 @@ function focusCoinFromGainer(sym) {
     if (!el) { if (tries > 0) setTimeout(() => go(tries - 1), 120); return; }
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     el.classList.remove('tg-flash'); void el.offsetWidth; el.classList.add('tg-flash');
-    setTimeout(() => el.classList.remove('tg-flash'), 1600);
+    setTimeout(() => el.classList.remove('tg-flash'), 3200);
   };
   setTimeout(() => go(4), 320);
 }
