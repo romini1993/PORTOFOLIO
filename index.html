@@ -1458,8 +1458,8 @@
     <!-- sort -->
     <div class="sort-row">
       <select id="sort-order-desk" class="ctrl-select" onchange="updateSettings('desk')">
-        <option value="manual">Urutan: Default</option>
         <option value="name">Urutan: A-Z</option>
+        <option value="name_desc">Urutan: Z-A</option>
         <option value="value">Urutan: Terbesar</option>
         <option value="gainers">Urutan: Gainers</option>
       </select>
@@ -1521,8 +1521,8 @@
         </div>
         <div class="sort-row">
           <select id="sort-order" class="ctrl-select" onchange="updateSettings('mob')">
-            <option value="manual">Urutan: Default</option>
             <option value="name">Urutan: A-Z</option>
+            <option value="name_desc">Urutan: Z-A</option>
             <option value="value">Urutan: Terbesar</option>
             <option value="gainers">Urutan: Gainers</option>
           </select>
@@ -2282,7 +2282,8 @@ const exchangeLogos = {
 
 window.onload = () => {
   migrateToUppercase();
-  const savedSort = localStorage.getItem('last_sort') || 'manual';
+  let savedSort = localStorage.getItem('last_sort') || 'name';
+  if (!['name','name_desc','value','gainers'].includes(savedSort)) savedSort = 'name';
   const savedCur = localStorage.getItem('last_cur') || 'IDR';
   ['sort-order','sort-order-desk'].forEach(id => { const el = document.getElementById(id); if(el) el.value = savedSort; });
   ['currency-view','currency-view-desk'].forEach(id => { const el = document.getElementById(id); if(el) el.value = savedCur; });
@@ -2539,8 +2540,14 @@ async function fetchAll() {
 // ══════════════════════════════
 function getSortType() {
   const isDesktop = window.innerWidth >= 700;
-  return document.getElementById(isDesktop ? 'sort-order-desk' : 'sort-order')?.value || 'manual';
+  return document.getElementById(isDesktop ? 'sort-order-desk' : 'sort-order')?.value || 'name';
 }
+// Urut nama: A-Z / Z-A, angka natural (WALLET 2 sebelum WALLET 10)
+function nameCmp(sortType) {
+  const dir = sortType === 'name_desc' ? -1 : 1;
+  return (a, b) => dir * String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+}
+const isNameSort = t => t === 'name' || t === 'name_desc';
 function getCurrencyView() {
   const isDesktop = window.innerWidth >= 700;
   return document.getElementById(isDesktop ? 'currency-view-desk' : 'currency-view')?.value || 'IDR';
@@ -2973,7 +2980,7 @@ function renderListInto(list, isActive) {
       return { name: ex, totalValue: t };
     }).filter(ex => ex.name.includes(query));
 
-    if(sortType === 'name') exArr.sort((a,b) => a.name.localeCompare(b.name));
+    if(isNameSort(sortType)) { const c = nameCmp(sortType); exArr.sort((a,b) => c(a.name, b.name)); }
     else if(sortType === 'value' || sortType === 'gainers') exArr.sort((a,b) => b.totalValue - a.totalValue);
 
     if(exArr.length === 0) {
@@ -2986,7 +2993,7 @@ function renderListInto(list, isActive) {
       const logo = exchangeLogos[brand] || '';
       let subKoin = watchlist.filter(s => coinSources[s]?.includes(ex.name));
 
-      if(sortType === 'name') subKoin.sort((a,b) => a.localeCompare(b));
+      if(isNameSort(sortType)) subKoin.sort(nameCmp(sortType));
       else if(sortType === 'value') subKoin.sort((a,b) => (getCoinBalanceAt(b, ex.name)*(prices[b]||0)) - (getCoinBalanceAt(a, ex.name)*(prices[a]||0)));
       else if(sortType === 'gainers') subKoin.sort((a,b) => parseFloat(changes[b]||-999) - parseFloat(changes[a]||-999));
 
@@ -3056,7 +3063,7 @@ function renderListInto(list, isActive) {
 
   } else {
     let filtered = watchlist.filter(s => s.includes(query));
-    if(sortType === 'name') filtered.sort((a,b) => a.localeCompare(b));
+    if(isNameSort(sortType)) filtered.sort(nameCmp(sortType));
     else if(sortType === 'value') filtered.sort((a,b) => (getCoinTotal(b)*(prices[b]||0)) - (getCoinTotal(a)*(prices[a]||0)));
     else if(sortType === 'gainers') filtered.sort((a,b) => parseFloat(changes[b]||-999) - parseFloat(changes[a]||-999));
 
@@ -3066,7 +3073,7 @@ function renderListInto(list, isActive) {
 
     filtered.forEach((s, sIdx) => {
       const subSrc = [...(coinSources[s]||[])];
-      if (sortType === 'name') subSrc.sort((x, y) => x.localeCompare(y));
+      if (isNameSort(sortType)) subSrc.sort(nameCmp(sortType));
       else if (sortType === 'value') subSrc.sort((x, y) => getCoinBalanceAt(s, y) - getCoinBalanceAt(s, x));
       const isOpen = expandedItem === s;
       const p = prices[s] || 0;
