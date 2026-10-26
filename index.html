@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-title" content="PORTO">
   <link rel="manifest" href="manifest.json">
   <title>PORTO</title>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1377,7 +1377,72 @@
     .stat-box.tg-click:hover { border-color: var(--accent-border); background: rgba(124,106,247,0.07); transform: translateY(-1px); }
     .stat-box.tg-click:active { transform: scale(.98); }
     .stat-box.tg-click:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-</style>
+
+    /* ═══════ HERO LISTRIK — gaya "meter digital" (hapus blok ini untuk balik ke tampilan lama) ═══════ */
+    .summary-card {
+      --volt: #FFB020;
+      --spark: #5EEAD4;
+      position: relative;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 0%, rgba(255,176,32,0.10), transparent 70%), #0F1319;
+      border: 1px solid #262E3A;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+    .summary-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(to bottom, rgba(255,255,255,0.03) 0 2px, transparent 2px 4px);
+      pointer-events: none;
+    }
+    .summary-card > * { position: relative; }
+    .summary-label {
+      font-family: 'Share Tech Mono', var(--mono);
+      color: var(--spark);
+      letter-spacing: 0.16em;
+    }
+    .summary-idr {
+      font-family: 'Share Tech Mono', var(--mono);
+      font-weight: 400;
+      color: var(--volt);
+      text-shadow: 0 0 16px rgba(255,176,32,0.55);
+      letter-spacing: 0.02em;
+      padding: 2px 0;
+    }
+    .summary-usd {
+      font-family: 'Share Tech Mono', var(--mono);
+      color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+    .asset-count {
+      font-family: 'Share Tech Mono', var(--mono);
+      color: var(--volt);
+      background: rgba(255,176,32,0.08);
+      border-color: rgba(255,176,32,0.4);
+      letter-spacing: 0.08em;
+    }
+
+    /* bold: Share Tech Mono cuma punya 1 ketebalan, jadi ditebalkan pakai stroke */
+    .summary-idr { -webkit-text-stroke: 0.7px var(--volt); paint-order: stroke fill; }
+    .summary-usd { -webkit-text-stroke: 0.3px currentColor; }
+    .summary-label { -webkit-text-stroke: 0.3px currentColor; }
+    .asset-count { -webkit-text-stroke: 0.3px currentColor; }
+
+    /* desktop (sidebar): kartu tidak boleh ketekan, lebih tinggi & lega */
+    .sidebar .summary-card {
+      flex-shrink: 0;
+      min-height: 172px;
+      padding: 24px 24px 20px;
+      justify-content: space-between;
+    }
+    .sidebar .summary-card .summary-left { flex: 0 0 auto; width: 100%; }
+    .sidebar .summary-card .summary-label { font-size: 11px; margin-bottom: 8px; }
+    .sidebar .summary-card .summary-idr { font-size: 30px; -webkit-text-stroke-width: 0.8px; }
+    .sidebar .summary-card .summary-usd { font-size: 14px; margin-top: 6px; }
+
+    @media (max-width: 380px) { .summary-wrap .summary-idr { font-size: 19px; } }
+    @media (max-width: 340px) { .summary-wrap .summary-idr { font-size: 16px; } }
+  </style>
 </head>
 <body>
 
